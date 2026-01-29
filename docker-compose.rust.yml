@@ -1,0 +1,13 @@
+services:
+  claude:
+    volumes:
+      # Isolated target directory - prevents hiding artifacts in your repo
+      - rust_target:/home/node/rust_target
+      # Cargo cache for faster builds
+      - cargo_cache:/home/node/.cargo
+    environment:
+      - CARGO_TARGET_DIR=/home/node/rust_target
+
+volumes:
+  rust_target:
+  cargo_cache:

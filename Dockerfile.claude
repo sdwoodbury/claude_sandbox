@@ -7,6 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
+# fix for rust integration
+RUN mkdir -p /home/node/rust_target && \
+    chown node:node /home/node/rust_target
+
 USER node
 WORKDIR /home/node/build
 

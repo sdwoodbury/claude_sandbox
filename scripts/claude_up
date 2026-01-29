@@ -5,9 +5,45 @@ export CODE_MOUNT="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${SCRIPT_DIR}/.."
 
-pushd "$PROJECT_ROOT"
-docker compose -f docker-compose-claude.yml up -d
-CONTAINER_ID=$(docker compose -f docker-compose-claude.yml ps -q claude)
-popd
+# Build compose file array starting with base
+COMPOSE_FILES=("-f" "${PROJECT_ROOT}/docker-compose.yml")
 
-docker exec -it $CONTAINER_ID bash
+# Parse flags and add extensions
+for arg in "$@"; do
+    case "$arg" in
+        -r)
+            COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.rust.yml")
+            ;;
+        -g)
+            COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.git-rw.yml")
+            ;;
+        -h)
+            echo "Usage: claude_up [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  -r    Add Rust target and cargo cache volumes"
+            echo "  -g    Enable git write access (for commits)"
+            echo "  -h    Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  claude_up        # Locked-down default"
+            echo "  claude_up -r     # Add Rust support"
+            echo "  claude_up -g     # Enable git commits"
+            echo "  claude_up -r -g  # Both extensions"
+            exit 0
+            ;;
+    esac
+done
+
+docker compose "${COMPOSE_FILES[@]}" up -d
+CONTAINER_ID=$(docker compose "${COMPOSE_FILES[@]}" ps -q claude)
+
+cleanup() {
+    echo "Caught exit/interrupt. Running cleanup"
+    trap - EXIT SIGINT SIGTERM
+    docker compose "${COMPOSE_FILES[@]}" down
+    unset CODE_MOUNT
+}
+trap cleanup EXIT SIGINT SIGTERM
+
+docker exec -it "$CONTAINER_ID" bash

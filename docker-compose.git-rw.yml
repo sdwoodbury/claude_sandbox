@@ -1,0 +1,9 @@
+services:
+  claude:
+    volumes:
+      # Override base .git mount: read-write for commits
+      - ${CODE_MOUNT}/.git:/home/node/dev/.git:rw
+      - ${CODE_MOUNT}/.git/hooks:/home/node/dev/.git/hooks:ro
+      - ${SSH_AUTH_SOCK}:/ssh-agent
+    environment:
+      - SSH_AUTH_SOCK=/ssh-agent

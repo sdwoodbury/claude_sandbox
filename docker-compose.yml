@@ -1,0 +1,27 @@
+services:
+  claude:
+    image: claude
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      # Main workspace
+      - ${CODE_MOUNT}:/home/node/dev
+      # Git mounted read-only by default to protect hooks and history
+      - ${CODE_MOUNT}/.git:/home/node/dev/.git:ro
+      # Claude auth persistence
+      - claude_data:/home/node/.claude
+      - ${HOME}/.claude.json:/home/node/.claude.json
+      - ${HOME}/.config/claude-code/auth.json:/home/node/.config/claude-code/auth.json
+      - ${HOME}/.gitconfig.claude:/home/node/.gitconfig:ro
+    # Security: no privilege escalation, drop all capabilities
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    # Keep container running with interactive terminal
+    stdin_open: true
+    tty: true
+    environment:
+      - TERM=xterm-256color
+    command: tail -f /dev/null
+
+volumes:
+  claude_data:
