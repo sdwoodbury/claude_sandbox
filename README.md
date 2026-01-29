@@ -23,3 +23,6 @@ then use `claude_up` and `claude_down` at will
 docker is installed and set up to run without root. same for docker compose.
 
 The rust version is hardcoded in `Dockerfile.claude` but can be updated
+
+## Optional
+One can optionally uncomment the `SSH_AUTH_SOCK` and `.gitconfig` lines in the docker compose file to let the agent make git commits, without exposing your ssh keys to the agent. Note that you probably want a separate `.gitconfig` and ssh key for the agent.

@@ -14,6 +14,9 @@ services:
       - claude_data:/home/node/.claude
       - ${HOME}/.claude.json:/home/node/.claude.json
       - ${HOME}/.config/claude-code/auth.json:/home/node/.config/claude-code/auth.json
+      # optional: for git authentication without exposing ssh keys
+      #- ${SSH_AUTH_SOCK}:/ssh-agent
+      #- ${HOME}/.gitconfig:/home/node/.gitconfig:ro
     # don't allow chown or chgrp
     security_opt:
       - no-new-privileges:true
@@ -23,6 +26,7 @@ services:
     tty: true
     environment:
       - TERM=xterm-256color # Fancy colors
+      #- SSH_AUTH_SOCK=/ssh-agent
     command: tail -f /dev/null
 
 volumes:
