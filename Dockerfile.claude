@@ -1,0 +1,23 @@
+FROM claude-base
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl-dev \
+    protobuf-compiler \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+USER node
+WORKDIR /home/node/build
+
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.31.1/cmake-3.31.1-linux-x86_64.tar.gz \
+    && tar -xvf cmake-3.31.1-linux-x86_64.tar.gz
+
+ENV PATH="/home/node/.cargo/bin:/home/node/build/cmake-3.31.1-linux-x86_64/bin:${PATH}"
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
+    && /home/node/.cargo/bin/rustup default 1.89.0
+
+WORKDIR /home/node/dev
+
+CMD ["bash"]
