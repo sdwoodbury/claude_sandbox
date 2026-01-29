@@ -55,6 +55,7 @@ claude_up -r -g  # Both extensions
 - `anthropic/devcontainer.json` - VS Code devcontainer configuration
 - `anthropic/init-firewall.sh` - Network firewall initialization
 - `scripts/claude_up` - Container lifecycle script
+- `scripts/claude_down` - Find and terminate runaway containers
 
 ## Git Commit Support
 

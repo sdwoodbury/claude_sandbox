@@ -1,0 +1,16 @@
+#!/bin/bash
+# Script to stop all Docker containers launched by this repo (claude_sandbox)
+set -euo pipefail
+
+PROJECT_NAME="claude_sandbox"
+
+# Find containers by label (docker-compose adds a label for the project)
+CONTAINER_IDS=$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT_NAME")
+
+if [ -z "$CONTAINER_IDS" ]; then
+    echo "No matching containers found to kill."
+    exit 0
+fi
+
+echo "Killing containers: $CONTAINER_IDS"
+docker kill $CONTAINER_IDS
