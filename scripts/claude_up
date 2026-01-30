@@ -17,12 +17,16 @@ for arg in "$@"; do
         -g)
             COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.git-rw.yml")
             ;;
+        -hx)
+            COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.hx.yml")
+            ;;
         -h)
             echo "Usage: claude_up [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  -r    Add Rust target and cargo cache volumes"
             echo "  -g    Enable git write access (for commits)"
+            echo "  -hx   Mount config file for helix editor"
             echo "  -h    Show this help message"
             echo ""
             echo "Examples:"

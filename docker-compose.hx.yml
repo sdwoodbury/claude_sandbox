@@ -1,0 +1,4 @@
+services:
+  claude:
+    volumes:
+      - ${HOME}/.config/helix/config.toml:/home/node/.config/helix/config.toml
