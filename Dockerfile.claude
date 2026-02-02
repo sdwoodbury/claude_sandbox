@@ -1,15 +1,23 @@
 FROM claude-base
 
 USER root
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     protobuf-compiler \
     pkg-config \
+    tmux \
     && rm -rf /var/lib/apt/lists/*
+
+RUN wget https://github.com/helix-editor/helix/releases/download/25.07.1/helix_25.7.1-1_amd64.deb && dpkg -i helix_25.7.1-1_amd64.deb && rm helix_25.7.1-1_amd64.deb 
 
 # fix for rust integration
 RUN mkdir -p /home/node/rust_target && \
     chown node:node /home/node/rust_target
+
+# Create dev directory and build directory with proper permissions
+RUN mkdir -p /home/node/cmake_build && \
+    chown node:node /home/node/cmake_build
 
 USER node
 WORKDIR /home/node/build

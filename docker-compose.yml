@@ -11,6 +11,7 @@ services:
       - claude_data:/home/node/.claude
       - ${HOME}/.claude.json:/home/node/.claude.json
       - ${HOME}/.config/claude-code/auth.json:/home/node/.config/claude-code/auth.json
+      # add gitconfig. includes public ssh key for signing commits
       - ${HOME}/.gitconfig.claude:/home/node/.gitconfig:ro
     # Security: no privilege escalation, drop all capabilities
     security_opt:

@@ -8,12 +8,27 @@ PROJECT_ROOT="${SCRIPT_DIR}/.."
 # Build compose file array starting with base
 COMPOSE_FILES=("-f" "${PROJECT_ROOT}/docker-compose.yml")
 
+# Auto-detect Cargo.toml and add Rust support
+if [[ -f "Cargo.toml" ]]; then
+    echo "Detected Cargo.toml - enabling Rust support"
+    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.rust.yml")
+fi
+
+# Auto-detect CMakeLists.txt and add CMake support
+if [[ -f "CMakeLists.txt" ]]; then
+    echo "Detected CMakeLists.txt - enabling CMake support"
+    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.cmake.yml")
+fi
+
+# Auto-detect helix config and add helix support
+if [[ -f "$HOME/.config/helix/config.toml" ]]; then
+    echo "Detected helix config - enabling helix support"
+    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.hx.yml")
+fi
+
 # Parse flags and add extensions
 for arg in "$@"; do
     case "$arg" in
-        -r)
-            COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.rust.yml")
-            ;;
         -g)
             COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.git-rw.yml")
             ;;
@@ -21,15 +36,12 @@ for arg in "$@"; do
             echo "Usage: claude_up [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  -r    Add Rust target and cargo cache volumes"
             echo "  -g    Enable git write access (for commits)"
             echo "  -h    Show this help message"
             echo ""
             echo "Examples:"
             echo "  claude_up        # Locked-down default"
-            echo "  claude_up -r     # Add Rust support"
             echo "  claude_up -g     # Enable git commits"
-            echo "  claude_up -r -g  # Both extensions"
             exit 0
             ;;
     esac

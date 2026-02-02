@@ -1,0 +1,12 @@
+services:
+  claude:
+    volumes:
+      # CMake build directory - keeps build artifacts isolated
+      - cmake_build:/home/node/cmake_build
+    environment:
+      # Set CMAKE_BINARY_DIR to use the mounted build directory
+      - CMAKE_BINARY_DIR=/home/node/cmake_build
+    working_dir: /home/node/dev
+
+volumes:
+  cmake_build:
