@@ -1,6 +1,6 @@
 services:
   claude:
-    image: claude
+    image: claude:latest
     volumes:
       # Main workspace
       - ${CODE_MOUNT}:/home/node/dev

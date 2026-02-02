@@ -1,4 +1,4 @@
-FROM claude-base
+FROM claude-base:latest
 
 USER root
 
@@ -9,11 +9,11 @@ RUN ARCH=$(uname -m) && \
     rm cmake-3.31.1-linux-${ARCH}.tar.gz
 
 # 2. Install Rust system-wide
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path && \
+    rustup default 1.89.0
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path && \
-    rustup default 1.89.0
 
 # 3. THE ISOLATION TRAP
 # Force all Rust binaries into the internal volume
@@ -26,6 +26,5 @@ ENV CMAKE_BINARY_DIR=/home/node/cmake_build
 RUN mkdir -p /home/node/cmake_build && \
     chown node:node /home/node/cmake_build
 
-# We don't need to switch USER node here; 
-# the base ENTRYPOINT handles that at runtime.
+# must be root for iptables script to work
 WORKDIR /home/node/dev

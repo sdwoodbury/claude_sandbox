@@ -27,28 +27,39 @@ RUN ARCH=$(dpkg --print-architecture) && \
     dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
     rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
-# 4. Environment Variables
+# 4. Install Claude as root for global access
+RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
+
+# 5. Install Oh My Zsh system-wide (or for node)
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
+    cp -r /root/.oh-my-zsh /home/node/.oh-my-zsh && \
+    chown -R node:node /home/node/.oh-my-zsh
+
+# 6. Create a clean .zshrc for the node user
+RUN echo 'export ZSH="/home/node/.oh-my-zsh"' > /home/node/.zshrc && \
+    echo 'plugins=(git fzf)' >> /home/node/.zshrc && \
+    echo 'source $ZSH/oh-my-zsh.sh' >> /home/node/.zshrc && \
+    # Add your history persistence here
+    echo 'export PROMPT_COMMAND="history -a"' >> /home/node/.zshrc && \
+    echo 'export HISTFILE=/commandhistory/.bash_history' >> /home/node/.zshrc && \
+    # Fix FZF keybindings (Debian/Ubuntu paths)
+    echo 'source /usr/share/doc/fzf/examples/key-bindings.zsh' >> /home/node/.zshrc && \
+    echo 'source /usr/share/doc/fzf/examples/completion.zsh' >> /home/node/.zshrc && \
+    chown node:node /home/node/.zshrc
+
+# 7. Final Setup as Root
+COPY init-firewall.sh /usr/local/bin/
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/entrypoint.sh
+
+# 8. Environment Variables
+USER node
 ENV DEVCONTAINER=true \
     NPM_CONFIG_PREFIX=/usr/local/share/npm-global \
     PATH=$PATH:/usr/local/share/npm-global/bin \
     SHELL=/bin/zsh \
     EDITOR=nano \
     VISUAL=nano
-
-# 5. Install ZSH Theme & Claude as 'node'
-USER node
-RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v${ZSH_IN_DOCKER_VERSION}/zsh-in-docker.sh)" -- \
-    -p git -p fzf \
-    -a "source /usr/share/doc/fzf/examples/key-bindings.zsh" \
-    -a "source /usr/share/doc/fzf/examples/completion.zsh" \
-    -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" && \
-    npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
-
-# 6. Final Setup as Root
-USER root
-COPY init-firewall.sh /usr/local/bin/
-COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/init-firewall.sh /usr/local/bin/entrypoint.sh
 
 WORKDIR /home/node/dev
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
