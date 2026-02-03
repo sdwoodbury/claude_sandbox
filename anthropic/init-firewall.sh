@@ -17,9 +17,7 @@ ipset destroy allowed-domains 2>/dev/null || true
 # 2. Selectively restore ONLY internal Docker DNS resolution
 if [ -n "$DOCKER_DNS_RULES" ]; then
     echo "Restoring Docker DNS rules..."
-    iptables -t nat -N DOCKER_OUTPUT 2>/dev/null || true
-    iptables -t nat -N DOCKER_POSTROUTING 2>/dev/null || true
-    echo "$DOCKER_DNS_RULES" | xargs -L 1 iptables -t nat
+    echo "$DOCKER_DNS_RULES" | iptables-restore --noflush
 else
     echo "No Docker DNS rules to restore"
 fi
