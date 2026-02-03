@@ -1,7 +1,6 @@
 services:
   claude:
-    image: claude
-    user: "${UID:-1000}:${GID:-1000}"
+    image: claude:latest
     volumes:
       # Main workspace
       - ${CODE_MOUNT}:/home/node/dev
@@ -11,11 +10,15 @@ services:
       - claude_data:/home/node/.claude
       - ${HOME}/.claude.json:/home/node/.claude.json
       - ${HOME}/.config/claude-code/auth.json:/home/node/.config/claude-code/auth.json
+      # add gitconfig. includes public ssh key for signing commits
       - ${HOME}/.gitconfig.claude:/home/node/.gitconfig:ro
-    # Security: no privilege escalation, drop all capabilities
     security_opt:
       - no-new-privileges:true
-    cap_drop: [ALL]
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN  # Needed for iptables
+      - NET_RAW    # Needed for ipset/iptables
     # Keep container running with interactive terminal
     stdin_open: true
     tty: true

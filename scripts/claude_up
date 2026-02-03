@@ -1,49 +1,75 @@
 #!/bin/bash
 set -euo pipefail
 
-export CODE_MOUNT="$(pwd)"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${SCRIPT_DIR}/.."
+# 1. Resolve Absolute Paths
+# Using -P ensures that even if you are in a symlinked directory, 
+# Docker sees the true physical path for volume mounting.
+export CODE_MOUNT="$(pwd -P)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
 
-# Build compose file array starting with base
+# 2. Build Compose Hierarchy
 COMPOSE_FILES=("-f" "${PROJECT_ROOT}/docker-compose.yml")
 
-# Parse flags and add extensions
+# Auto-detect project types and inject specialized volumes/configs
+if [[ -f "Cargo.toml" ]]; then
+    echo "Detected Cargo.toml - isolated Rust build target enabled"
+    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.rust.yml")
+fi
+
+if [[ -f "CMakeLists.txt" ]]; then
+    echo "Detected CMakeLists.txt - internal build directory enabled"
+    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.cmake.yml")
+fi
+
+if [[ -f "$HOME/.config/helix/config.toml" ]]; then
+    echo "Detected Helix config - mapping local editor settings"
+    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.hx.yml")
+fi
+
+# 3. Flag Parsing
+ENABLE_GIT_WRITE=false
 for arg in "$@"; do
     case "$arg" in
-        -r)
-            COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.rust.yml")
-            ;;
         -g)
+            echo "Git Write Access Enabled (Agents can commit)"
             COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.git-rw.yml")
+            ENABLE_GIT_WRITE=true
             ;;
-        -h)
+        -h|--help)
             echo "Usage: claude_up [OPTIONS]"
-            echo ""
-            echo "Options:"
-            echo "  -r    Add Rust target and cargo cache volumes"
-            echo "  -g    Enable git write access (for commits)"
+            echo "  -g    Enable git write access (removes :ro from .git)"
             echo "  -h    Show this help message"
-            echo ""
-            echo "Examples:"
-            echo "  claude_up        # Locked-down default"
-            echo "  claude_up -r     # Add Rust support"
-            echo "  claude_up -g     # Enable git commits"
-            echo "  claude_up -r -g  # Both extensions"
             exit 0
             ;;
     esac
 done
 
+# 4. Launch Container
+echo "Starting hardened Claude environment..."
 docker compose "${COMPOSE_FILES[@]}" up -d
+
+# Get ID to avoid ambiguity with multiple instances
 CONTAINER_ID=$(docker compose "${COMPOSE_FILES[@]}" ps -q claude)
 
+# 5. Cleanup Trap
+# Ensures that when you exit the shell, the firewall and container are torn down.
 cleanup() {
-    echo "Caught exit/interrupt. Running cleanup"
+    echo -e "\nTearing down environment..."
     trap - EXIT SIGINT SIGTERM
     docker compose "${COMPOSE_FILES[@]}" down
     unset CODE_MOUNT
 }
 trap cleanup EXIT SIGINT SIGTERM
 
-docker exec -it "$CONTAINER_ID" bash
+# 6. Readiness Check
+# Ensures ZSH doesn't start until 'root' has finished the firewall and chown.
+echo "Waiting for firewall and permission sync..."
+until docker exec "$CONTAINER_ID" test -f /tmp/container_ready 2>/dev/null; do
+    sleep 0.5
+done
+
+# 7. Enter as 'node'
+# Even though the container booted as root, we interact only as node
+echo "Environment Ready. Dropping to unprivileged shell."
+docker compose "${COMPOSE_FILES[@]}" exec -u node -it claude zsh

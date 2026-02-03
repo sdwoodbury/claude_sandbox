@@ -10,9 +10,9 @@ This is a Docker-based sandbox environment for running Claude Code with Rust sup
 # Build base image (Node.js 20, dev tools, Claude Code CLI)
 docker build -t claude-base -f anthropic/Dockerfile.claude_base anthropic
 
-# Build application image (adds Rust 1.89.0, CMake, protobuf)
+# Build application image (adds libssl-dev, protobuf, cmake, and rust)
 docker build -t claude -f Dockerfile.claude .
-
+ 
 # Initialize credential files (required before first run)
 touch ~/.claude.json && touch ~/.config/claude-code/auth.json
 
@@ -25,9 +25,7 @@ touch ~/.gitconfig.claude
 ```bash
 # Add scripts directory to PATH, then:
 claude_up        # Locked-down default (git read-only)
-claude_up -r     # Add Rust target/cargo volumes
 claude_up -g     # Enable git write access
-claude_up -r -g  # Both extensions
 ```
 
 ## Architecture
@@ -36,10 +34,7 @@ claude_up -r -g  # Both extensions
 1. `anthropic/Dockerfile.claude_base` - Base layer with Node.js, git, zsh, GitHub CLI, Claude Code CLI
 2. `Dockerfile.claude` - Application layer adding Rust toolchain, CMake, system dependencies
 
-**Docker Compose (modular):**
-- `docker-compose.yml` - Base config: code mount, Claude auth, git read-only
-- `docker-compose.rust.yml` - Adds Rust target/cargo volumes
-- `docker-compose.git-rw.yml` - Git write access with SSH agent forwarding
+**Docker Compose:**
 - Runs as `node:node` with dropped capabilities and `no-new-privileges`
 
 **Network Security (`anthropic/init-firewall.sh`):**
@@ -48,10 +43,10 @@ claude_up -r -g  # Both extensions
 - Blocks all other outbound traffic by default
 
 ## Key Files
-
 - `docker-compose.yml` - Base container config (locked-down default)
 - `docker-compose.rust.yml` - Rust extension (target/cargo volumes)
 - `docker-compose.git-rw.yml` - Git write extension (SSH agent, gitconfig)
+- `docker-compose.helix.yml` - Adds the host helix configuration file
 - `anthropic/devcontainer.json` - VS Code devcontainer configuration
 - `anthropic/init-firewall.sh` - Network firewall initialization
 - `scripts/claude_up` - Container lifecycle script
