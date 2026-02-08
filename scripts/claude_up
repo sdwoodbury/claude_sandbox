@@ -17,10 +17,10 @@ if [[ -f "Cargo.toml" ]]; then
     COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.rust.yml")
 fi
 
-if [[ -f "CMakeLists.txt" ]]; then
-    echo "Detected CMakeLists.txt - internal build directory enabled"
-    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.cmake.yml")
-fi
+# if [[ -f "CMakeLists.txt" ]]; then
+#     echo "Detected CMakeLists.txt - internal build directory enabled"
+#     COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.cmake.yml")
+# fi
 
 if [[ -f "$HOME/.config/helix/config.toml" ]]; then
     echo "Detected Helix config - mapping local editor settings"
