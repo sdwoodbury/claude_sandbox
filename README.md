@@ -52,6 +52,13 @@ claude_up -g     # Enable git write access
 - `scripts/claude_up` - Container lifecycle script
 - `scripts/claude_down` - Find and terminate runaway containers
 
+## Troubleshooting
+The firewall locks in the IP addresses for allowed domains only at startup.
+
+If connection fails: Restart the container. This forces a fresh DNS lookup and updates the iptables rules.
+
+If IPs change: Services sometimes rotate their IP addresses while the container is running. If a service suddenly becomes unreachable, a quick restart will pick up the new addresses.
+
 ## Git Commit Support
 
 Use `-g` flag to enable git commits via SSH agent forwarding. Requires `~/.gitconfig.claude`.

@@ -44,6 +44,25 @@ for domain in "${ALLOWED_DOMAINS[@]}"; do
     done
 done
 
+# close temporary dns hole
+iptables -D OUTPUT -p udp --dport 53 -j ACCEPT
+
+# Allow DNS only to Google and Cloudflare
+# This allows resolving allowed domains but prevents exfiltration to rogue DNS servers
+TRUSTED_DNS=("8.8.8.8" "8.8.4.4" "1.1.1.1" "1.0.0.1")
+
+for dns in "${TRUSTED_DNS[@]}"; do
+    # Standard DNS (UDP)
+    iptables -A OUTPUT -p udp -d "$dns" --dport 53 -j ACCEPT
+    # DNS over TCP (fallback for large responses)
+    iptables -A OUTPUT -p tcp -d "$dns" --dport 53 -j ACCEPT
+done
+
+# Ensure the container is actually using these servers
+# This forces the internal resolver to use our allowed IPs
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+
 # Block Localnet (Final Catch-all)
 iptables -A OUTPUT -d 10.0.0.0/8 -j REJECT
 iptables -A OUTPUT -d 172.16.0.0/12 -j REJECT
