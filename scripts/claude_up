@@ -9,7 +9,7 @@ CLAUDE_DATA="claude_data_vol"
 # Define Base Mounts
 DOCKER_FLAGS=(
     "-it" "--rm"
-    "--name" "claude_dev"
+    "--name" "claude_sandbox"
     "--cap-add=NET_ADMIN"
     "--env" "DEVCONTAINER=true"
     "--env" "TERM=xterm-256color"
@@ -19,17 +19,12 @@ DOCKER_FLAGS=(
     "-v" "${HOME}/.gitconfig.claude:/root/.gitconfig:ro"
 )
 
-# Project Auto-Detection
+# mount rust target dir on separate volume
 if [[ -f "Cargo.toml" ]]; then
     echo "Detected Cargo.toml - isolated Rust build target enabled"
     DOCKER_FLAGS+=("-v" "claude_rust_target:/root/rust_target")
     DOCKER_FLAGS+=("-v" "claude_cargo_cache:/usr/local/cargo")
     DOCKER_FLAGS+=("--env" "CARGO_TARGET_DIR=/root/rust_target")
-fi
-
-if [[ -f "CMakeLists.txt" ]]; then
-    echo "Detected CMakeLists.txt - internal build directory enabled"
-    DOCKER_FLAGS+=("-v" "claude_cmake_build:/root/dev/build")
 fi
 
 # Flag Parsing
