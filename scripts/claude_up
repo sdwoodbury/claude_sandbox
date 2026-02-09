@@ -1,39 +1,44 @@
 #!/bin/bash
 set -euo pipefail
 
-# 1. Resolve Absolute Paths
-# Using -P ensures that even if you are in a symlinked directory, 
-# Docker sees the true physical path for volume mounting.
-export CODE_MOUNT="$(pwd -P)"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
+# Configuration
+IMAGE_NAME="claude:latest"
+CODE_DIR="$(pwd -P)"
+CLAUDE_DATA="claude_data_vol"
 
-# 2. Build Compose Hierarchy
-COMPOSE_FILES=("-f" "${PROJECT_ROOT}/docker-compose.yml")
+# Define Base Mounts
+DOCKER_FLAGS=(
+    "-it" "--rm"
+    "--name" "claude_dev"
+    "--cap-add=NET_ADMIN"
+    "--env" "DEVCONTAINER=true"
+    "--env" "TERM=xterm-256color"
+    "-v" "${CODE_DIR}:/root/dev"
+    "-v" "${CLAUDE_DATA}:/root/.claude"
+    "-v" "${HOME}/.claude.json:/root/.claude.json"
+    "-v" "${HOME}/.gitconfig.claude:/root/.gitconfig:ro"
+)
 
-# Auto-detect project types and inject specialized volumes/configs
+# Project Auto-Detection
 if [[ -f "Cargo.toml" ]]; then
     echo "Detected Cargo.toml - isolated Rust build target enabled"
-    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.rust.yml")
+    DOCKER_FLAGS+=("-v" "claude_rust_target:/root/rust_target")
+    DOCKER_FLAGS+=("-v" "claude_cargo_cache:/usr/local/cargo")
+    DOCKER_FLAGS+=("--env" "CARGO_TARGET_DIR=/root/rust_target")
 fi
 
 if [[ -f "CMakeLists.txt" ]]; then
     echo "Detected CMakeLists.txt - internal build directory enabled"
-    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.cmake.yml")
+    DOCKER_FLAGS+=("-v" "claude_cmake_build:/root/dev/build")
 fi
 
-if [[ -f "$HOME/.config/helix/config.toml" ]]; then
-    echo "Detected Helix config - mapping local editor settings"
-    COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.hx.yml")
-fi
-
-# 3. Flag Parsing
+# Flag Parsing
 ENABLE_GIT_WRITE=false
 for arg in "$@"; do
     case "$arg" in
         -g)
             echo "Git Write Access Enabled (Agents can commit)"
-            COMPOSE_FILES+=("-f" "${PROJECT_ROOT}/docker-compose.git-rw.yml")
+            DOCKER_FLAGS+=("-v" "${CODE_DIR}/.git:/root/dev/.git:rw")
             ENABLE_GIT_WRITE=true
             ;;
         -h|--help)
@@ -45,31 +50,10 @@ for arg in "$@"; do
     esac
 done
 
-# 4. Launch Container
-echo "Starting hardened Claude environment..."
-docker compose "${COMPOSE_FILES[@]}" up -d
+if [ "$ENABLE_GIT_WRITE" = false ]; then
+    DOCKER_FLAGS+=("-v" "${CODE_DIR}/.git:/root/dev/.git:ro")
+fi
 
-# Get ID to avoid ambiguity with multiple instances
-CONTAINER_ID=$(docker compose "${COMPOSE_FILES[@]}" ps -q claude)
-
-# 5. Cleanup Trap
-# Ensures that when you exit the shell, the firewall and container are torn down.
-cleanup() {
-    echo -e "\nTearing down environment..."
-    trap - EXIT SIGINT SIGTERM
-    docker compose "${COMPOSE_FILES[@]}" down
-    unset CODE_MOUNT
-}
-trap cleanup EXIT SIGINT SIGTERM
-
-# 6. Readiness Check
-# Ensures ZSH doesn't start until 'root' has finished the firewall and chown.
-echo "Waiting for firewall and permission sync..."
-until docker exec "$CONTAINER_ID" test -f /tmp/container_ready 2>/dev/null; do
-    sleep 0.5
-done
-
-# 7. Enter as 'node'
-# Even though the container booted as root, we interact only as node
-echo "Environment Ready. Dropping to unprivileged shell."
-docker compose "${COMPOSE_FILES[@]}" exec -u node -it claude zsh
+# Launch Container
+echo "Launching Claude..."
+docker run "${DOCKER_FLAGS[@]}" "$IMAGE_NAME"
