@@ -1,30 +1,55 @@
-FROM claude-base:latest
+FROM ubuntu:24.04
 
-USER root
+ARG TZ=UTC
+ENV TZ="$TZ"
+ARG GIT_DELTA_VERSION=0.18.2
 
-# 1. Install CMake to /usr/local (invisible to host)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl wget ca-certificates \
+    less git procps sudo fzf zsh man-db unzip gnupg2 gh \
+    iproute2 dnsutils jq nano vim \
+    libssl-dev pkg-config tmux \
+    iptables libcap2-bin \
+    nodejs npm \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /root
+
+# Git Delta (Architecture Aware)
+RUN ARCH=$(dpkg --print-architecture) && \
+    wget "https://github.com/dandavison/delta/releases/download/${GIT_DELTA_VERSION}/git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
+    dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
+    rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
+
+RUN npm install -g @anthropic-ai/claude-code
+
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+RUN echo 'export ZSH="/root/.oh-my-zsh"' > /root/.zshrc && \
+    echo 'plugins=(git fzf)' >> /root/.zshrc && \
+    echo 'source $ZSH/oh-my-zsh.sh' >> /root/.zshrc
+
+# Toolchains: CMake & Rust 
 RUN ARCH=$(uname -m) && \
     wget -q https://github.com/Kitware/CMake/releases/download/v3.31.1/cmake-3.31.1-linux-${ARCH}.tar.gz && \
     tar -xvf cmake-3.31.1-linux-${ARCH}.tar.gz --strip-components=1 -C /usr/local && \
     rm cmake-3.31.1-linux-${ARCH}.tar.gz
 
-# 2. Install Rust system-wide
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
-#RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path && \
-#    rustup default 1.89.0
+    PATH=/usr/local/cargo/bin:/root/.local/bin:$PATH \
+    CARGO_TARGET_DIR=/root/rust_target
 
-# 3. THE ISOLATION TRAP
-# Force all Rust binaries into the internal volume
-ENV CARGO_TARGET_DIR=/home/node/rust_target
-RUN mkdir -p /home/node/rust_target && \
-    chown node:node /home/node/rust_target
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path && \
+    # Ensure rustup is in path for the current build shell
+    /usr/local/cargo/bin/rustup default stable
 
-# Force CMake to prefer an internal build directory if Claude uses defaults
-ENV CMAKE_BINARY_DIR=/home/node/cmake_build
-RUN mkdir -p /home/node/cmake_build && \
-    chown node:node /home/node/cmake_build
+# Setup workspace and directories
+RUN mkdir -p /root/rust_target /root/.claude /commandhistory && \
+    touch /commandhistory/.bash_history
 
-# must be root for iptables script to work
-WORKDIR /home/node/dev
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+
+WORKDIR /root/dev
+USER root
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

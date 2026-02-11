@@ -2,15 +2,12 @@ Claude Sandbox
 
 ## Project Overview
 
-This is a Docker-based sandbox environment for running Claude Code with Rust support and network isolation. It extends Anthropic's official devcontainer with additional tooling and security features.
+This is a Docker-based sandbox environment for running Claude Code with Rust support and network isolation.
 
 ## Build Commands
 
 ```bash
-# Build base image (Node.js 20, dev tools, Claude Code CLI)
-docker build -t claude-base -f anthropic/Dockerfile.claude_base anthropic
-
-# Build application image (adds libssl-dev, protobuf, cmake, and rust)
+# build image used by `claude_up` script
 docker build -t claude -f Dockerfile.claude .
  
 # Initialize credential files (required before first run)
@@ -28,29 +25,18 @@ claude_up        # Locked-down default (git read-only)
 claude_up -g     # Enable git write access
 ```
 
-## Architecture
-
-**Layered Docker Build:**
-1. `anthropic/Dockerfile.claude_base` - Base layer with Node.js, git, zsh, GitHub CLI, Claude Code CLI
-2. `Dockerfile.claude` - Application layer adding Rust toolchain, CMake, system dependencies
-
-**Docker Compose:**
-- Runs as `node:node` with dropped capabilities and `no-new-privileges`
-
-**Network Security (`anthropic/init-firewall.sh`):**
-- Whitelist-based firewall using iptables/ipset
-- Allows: GitHub, npm registry, Anthropic API, VS Code marketplace
-- Blocks all other outbound traffic by default
-
 ## Key Files
-- `docker-compose.yml` - Base container config (locked-down default)
-- `docker-compose.rust.yml` - Rust extension (target/cargo volumes)
-- `docker-compose.git-rw.yml` - Git write extension (SSH agent, gitconfig)
-- `docker-compose.helix.yml` - Adds the host helix configuration file
-- `anthropic/devcontainer.json` - VS Code devcontainer configuration
-- `anthropic/init-firewall.sh` - Network firewall initialization
-- `scripts/claude_up` - Container lifecycle script
+- `Dockerfile.claude` - Ubuntu base image, installs claude, rust, cmake, etc.
+- `entrypoint.sh` - Sets up iptables and resolves addresses of allowed endpoints on container startup.
+- `scripts/claude_up` - Launches `Dockerfile.claude` and removes the networking permissions, preventing the user from changing the iptables rules.
 - `scripts/claude_down` - Find and terminate runaway containers
+
+## Troubleshooting
+The firewall locks in the IP addresses for allowed domains only at startup.
+
+If connection fails: Restart the container. This forces a fresh DNS lookup and updates the iptables rules.
+
+If IPs change: Services sometimes rotate their IP addresses while the container is running. If a service suddenly becomes unreachable, a quick restart will pick up the new addresses.
 
 ## Git Commit Support
 
