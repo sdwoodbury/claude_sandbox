@@ -38,11 +38,16 @@ RUN ARCH=$(uname -m) && \
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:/root/.local/bin:$PATH \
-    CARGO_TARGET_DIR=/root/rust_target
+    CARGO_TARGET_DIR=/root/rust_target \
+    ENABLE_LSP_TOOLS=1
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path && \
     # Ensure rustup is in path for the current build shell
-    /usr/local/cargo/bin/rustup default stable
+    /usr/local/cargo/bin/rustup default stable && \
+    # for claude rust LSP plugin
+    /usr/local/cargo/bin/rustup component add rust-analyzer
+
+# user must install the claude rust analyzer plugins when claude is already logged in. mounting the .claude directory on volume will make this persist
 
 # Setup workspace and directories
 RUN mkdir -p /root/rust_target /root/.claude /commandhistory && \
