@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
-
+# uncomment these to install plugins
+#exec /usr/sbin/capsh --drop=cap_net_admin --user=root -- -c "exec /bin/bash --login -i"
+#exit 0
 # --- PRIVILEGED SETUP (Runs as Root) ---
 echo "🛡️ Initializing hardened firewall..."
 
