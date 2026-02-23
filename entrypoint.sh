@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-
 # --- PRIVILEGED SETUP (Runs as Root) ---
 echo "🛡️ Initializing hardened firewall..."
 
@@ -26,7 +25,7 @@ iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
 
 # Resolve and allow specific domains
 ALLOWED_DOMAINS=(
-    "github.com" "api.github.com" "registry.npmjs.org"
+    "ssh.github.com" "github.com" "api.github.com" "registry.npmjs.org"
     "api.anthropic.com" "sentry.io" "statsig.anthropic.com"
     "statsig.com" "marketplace.visualstudio.com"
     "vscode.blob.core.windows.net" "update.code.visualstudio.com"

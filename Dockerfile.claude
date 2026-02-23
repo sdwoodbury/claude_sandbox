@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev pkg-config tmux \
     iptables libcap2-bin \
     nodejs npm \
+    openssh-client \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /root
@@ -21,10 +22,11 @@ RUN ARCH=$(dpkg --print-architecture) && \
     dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
     rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
-RUN npm install -g @anthropic-ai/claude-code
+# install claude
+RUN curl -fsSL https://claude.ai/install.sh | bash -s stable
 
+# install zsh
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-
 RUN echo 'export ZSH="/root/.oh-my-zsh"' > /root/.zshrc && \
     echo 'plugins=(git fzf)' >> /root/.zshrc && \
     echo 'source $ZSH/oh-my-zsh.sh' >> /root/.zshrc
@@ -38,11 +40,16 @@ RUN ARCH=$(uname -m) && \
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:/root/.local/bin:$PATH \
-    CARGO_TARGET_DIR=/root/rust_target
+    CARGO_TARGET_DIR=/root/rust_target \
+    ENABLE_LSP_TOOLS=1
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path && \
     # Ensure rustup is in path for the current build shell
-    /usr/local/cargo/bin/rustup default stable
+    /usr/local/cargo/bin/rustup default stable && \
+    # for claude rust LSP plugin
+    /usr/local/cargo/bin/rustup component add rust-analyzer
+
+# user must install the claude rust analyzer plugins when claude is already logged in. mounting the .claude directory on volume will make this persist
 
 # Setup workspace and directories
 RUN mkdir -p /root/rust_target /root/.claude /commandhistory && \
