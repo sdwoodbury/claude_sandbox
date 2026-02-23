@@ -22,11 +22,11 @@ RUN ARCH=$(dpkg --print-architecture) && \
     dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
     rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
-# RUN npm install -g @anthropic-ai/claude-code
+# install claude
 RUN curl -fsSL https://claude.ai/install.sh | bash -s stable
 
+# install zsh
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-
 RUN echo 'export ZSH="/root/.oh-my-zsh"' > /root/.zshrc && \
     echo 'plugins=(git fzf)' >> /root/.zshrc && \
     echo 'source $ZSH/oh-my-zsh.sh' >> /root/.zshrc
