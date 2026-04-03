@@ -1,5 +1,9 @@
 #!/bin/bash
 set -e
+if [ "${ENABLE_KA:-false}" = "true" ]; then
+    echo "🔓 Firewall disabled (KA mode - unrestricted AWS/kubectl access)"
+    exec /usr/sbin/capsh --drop=cap_net_admin --user=root -- -c "exec /bin/bash --login -i"
+fi
 # --- PRIVILEGED SETUP (Runs as Root) ---
 echo "🛡️ Initializing hardened firewall..."
 

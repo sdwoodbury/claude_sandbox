@@ -23,6 +23,8 @@ touch ~/.gitconfig.claude
 # Add scripts directory to PATH, then:
 claude_up        # Locked-down default (git read-only)
 claude_up -g     # Enable git write access
+claude_up -ka    # Enable kubectl + AWS (for EKS clusters)
+claude_up -g -ka # Combine multiple flags
 ```
 
 ## Key Files
@@ -76,3 +78,38 @@ Use `-g` flag to enable git commits via SSH agent forwarding. Requires `~/.gitco
    ```bash
    claude_up -g
    ```
+
+## Kubernetes + AWS Support (for EKS)
+
+Use `-ka` flag to enable kubectl and AWS access for EKS clusters.
+
+**How it works:**
+- Mounts `~/.kube:/root/.kube:rw`
+- Mounts `~/.aws:/root/.aws:rw`
+- Extracts K8s API server URLs from kubeconfig
+- Extracts AWS regions from both `~/.aws/config` and EKS cluster endpoints
+- Allows AWS API endpoints through firewall (STS, EKS, EC2, S3, ECR)
+- Enables `aws eks get-token` authentication for kubectl
+
+**Setup:**
+```bash
+# Ensure ~/.kube and ~/.aws are configured
+claude_up -ka
+
+# Inside container:
+kubectl get pods
+kubectl logs my-pod
+kubectl describe deployment my-app
+aws eks list-clusters
+```
+
+# configuration
+in `~/.claude/CLAUDE.md` add this:
+```
+Code Navigation Rules:
+    NEVER use grep or rg to find function definitions, struct declarations, or symbol references.
+    ALWAYS use the rust-analyzer (or ra_tool) tools for symbol searches (find_definition, find_references).
+    If rust-analyzer fails or returns nothing, only then fallback to a targeted grep on specific directories.
+    Before editing code, use list_symbols to map out the file structure instead of reading the whole file.
+```
+

@@ -29,6 +29,7 @@ fi
 
 # Flag Parsing
 ENABLE_GIT_WRITE=false
+
 for arg in "$@"; do
     case "$arg" in
         -g)
@@ -36,10 +37,17 @@ for arg in "$@"; do
             DOCKER_FLAGS+=("-v" "${CODE_DIR}/.git:/root/dev/.git:rw")
             ENABLE_GIT_WRITE=true
             ;;
+        -ka)
+            echo "Kubernetes + AWS Access Enabled (for EKS)"
+            DOCKER_FLAGS+=("--env" "ENABLE_KA=true")
+            [ -d "${HOME}/.kube" ] && DOCKER_FLAGS+=("-v" "${HOME}/.kube:/root/.kube:rw") || echo "Warning: ~/.kube not found, skipping kubectl mount"
+            [ -d "${HOME}/.aws" ] && DOCKER_FLAGS+=("-v" "${HOME}/.aws:/root/.aws:rw") || echo "Warning: ~/.aws not found, skipping AWS mount"
+            ;;
         -h|--help)
             echo "Usage: claude_up [OPTIONS]"
-            echo "  -g    Enable git write access (removes :ro from .git)"
-            echo "  -h    Show this help message"
+            echo "  -g     Enable git write access (removes :ro from .git)"
+            echo "  -ka    Enable kubectl + AWS (for EKS clusters)"
+            echo "  -h     Show this help message"
             exit 0
             ;;
     esac
