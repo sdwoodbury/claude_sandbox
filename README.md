@@ -106,11 +106,41 @@ aws eks list-clusters
 # configuration
 in `~/.claude/CLAUDE.md` add this:
 ```
-Code Navigation Rules:
-    NEVER use grep or rg to find function definitions, struct declarations, or symbol references.
-    ALWAYS use the rust-analyzer (or ra_tool) tools for symbol searches (find_definition, find_references).
-    If rust-analyzer fails or returns nothing, only then fallback to a targeted grep on specific directories.
-    Before editing code, use list_symbols to map out the file structure instead of reading the whole file.
+### Rules for Vendor Folder
+- **NEVER** search, read, or index the `/vendor` directory.
+- **NEVER** modify files in `/vendor`.
+- If a dependency seems broken, ask the user to re-run `cargo vendor`.
+
+## Code Navigation Rules
+- **NEVER** use `grep` or `rg` for semantic symbol discovery (functions, structs, traits).
+- **ALWAYS** prioritize `rust-analyzer` (ra_tool) for:
+    - `find_definition`: To jump directly to the source.
+    - `find_references`: To assess the blast radius of a change.
+    - `type_definition`: To resolve complex trait bounds or generics.
+- **Fallback:** If `rust-analyzer` fails (e.g., due to a broken build or complex macros), only then use a targeted `grep` on specific modules.
+
+## File Ingestion Strategy
+- **Threshold Rule:** For any file >500 lines, **DO NOT** use `read_file`. 
+- **The Workflow:**
+    1. **Discovery:** Use `rust-analyzer` to get the line number of the target symbol.
+    2. **Contextual Read:** Use `context-mode` (specifically the `peek` or `summary` tools) to read only the lines surrounding the target (e.g., +/- 50 lines).
+    3. **Structural Mapping:** Use `list_symbols` or `context-mode`'s `summary` to map the file's layout before proposing large edits.
+
+## Editing Strategy
+- **Surgical Edits:** Propose edits based on the specific line numbers provided by `rust-analyzer`.
+- **Verification:** After editing, use `rust-analyzer` again to ensure no new type errors were introduced (run `cargo check` if necessary).
+- **Final Read:** Use `read_file` only as a final "sanity check" once the file has been surgically modified and reduced in size.
 ```
 
 to edit `~/.claude/config.json`, run this: `claude mcp add context-mode -- /usr/bin/context-mode`
+
+# local rust configuration
+run `cargo vendor`
+then in `.cargo/config.toml` add this:
+```
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
+```
