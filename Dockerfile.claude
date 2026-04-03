@@ -40,6 +40,14 @@ RUN ARCH=$(uname -m) && \
     ./aws/install && \
     rm -rf aws awscliv2.zip
 
+# Install Node.js 22 from NodeSource (Clean way, no 'node' user created)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# install context-mode globally
+RUN npm install -g context-mode
+
 WORKDIR /root
 
 # Git Delta (Architecture Aware)

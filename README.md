@@ -113,3 +113,4 @@ Code Navigation Rules:
     Before editing code, use list_symbols to map out the file structure instead of reading the whole file.
 ```
 
+to edit `~/.claude/config.json`, run this: `claude mcp add context-mode -- /usr/bin/context-mode`
