@@ -5,6 +5,7 @@ ENV TZ="$TZ"
 ARG GIT_DELTA_VERSION=0.18.2
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential clang libclang-dev \
     curl wget ca-certificates \
     less git procps sudo fzf zsh man-db unzip gnupg2 gh \
     iproute2 dnsutils jq nano vim \
@@ -77,11 +78,23 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_TARGET_DIR=/root/rust_target \
     ENABLE_LSP_TOOLS=1
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path && \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile complete --no-modify-path && \
     # Ensure rustup is in path for the current build shell
     /usr/local/cargo/bin/rustup default stable && \
     # for claude rust LSP plugin
-    /usr/local/cargo/bin/rustup component add rust-analyzer
+    /usr/local/cargo/bin/rustup component add rust-analyzer rust-src && \
+    ln -s $(/usr/local/cargo/bin/rustup which rust-analyzer) /usr/local/bin/rust-analyzer
+
+RUN cargo install cargo-binstall && \
+    cargo binstall -y ast-grep tree-sitter-cli && \
+    rm -rf /usr/local/cargo/registry /usr/local/cargo/git
+
+RUN cargo install ripgrep
+
+# Ensure the cargo path is added to the global bash/zsh configs for all shells
+RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/environment && \
+    echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.bashrc && \
+    echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.zshrc
 
 # user must install the claude rust analyzer plugins when claude is already logged in. mounting the .claude directory on volume will make this persist
 

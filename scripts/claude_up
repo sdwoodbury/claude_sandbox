@@ -5,6 +5,7 @@ set -euo pipefail
 IMAGE_NAME="claude:latest"
 CODE_DIR="$(pwd -P)"
 CLAUDE_DATA="claude_data_vol"
+AGENT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../agent_config"
 
 # Define Base Mounts
 DOCKER_FLAGS=(
@@ -17,6 +18,10 @@ DOCKER_FLAGS=(
     "-v" "${CLAUDE_DATA}:/root/.claude"
     "-v" "${HOME}/.claude.json:/root/.claude.json"
     "-v" "${HOME}/.gitconfig.claude:/root/.gitconfig:ro"
+    # for the rust orchestration
+    "-v" "${AGENT_DIR}/CLAUDE.md:/root/.claude/CLAUDE.md:ro"
+    "-v" "${AGENT_DIR}/log-scout.md:/root/.claude/agents/log-scout.md:ro"
+    "-v" "${AGENT_DIR}/rust-explorer.md:/root/.claude/agents/rust-explorer.md:ro"
 )
 
 # mount rust target dir on separate volume
