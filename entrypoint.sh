@@ -33,6 +33,8 @@ ALLOWED_DOMAINS=(
     "api.anthropic.com" "sentry.io" "statsig.anthropic.com"
     "statsig.com" "marketplace.visualstudio.com"
     "vscode.blob.core.windows.net" "update.code.visualstudio.com"
+    "static.rust-lang.org" "index.crates.io" "static.crates.io"
+    "objects.githubusercontent.com"
 )
 
 for domain in "${ALLOWED_DOMAINS[@]}"; do

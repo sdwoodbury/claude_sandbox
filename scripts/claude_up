@@ -5,6 +5,10 @@ set -euo pipefail
 IMAGE_NAME="claude:latest"
 CODE_DIR="$(pwd -P)"
 CLAUDE_DATA="claude_data_vol"
+AGENT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../agent_config"
+
+# for lspmux
+SOCKET_PATH="/tmp/ra-multiplex.sock"
 
 # Define Base Mounts
 DOCKER_FLAGS=(
@@ -13,19 +17,23 @@ DOCKER_FLAGS=(
     "--cap-add=NET_ADMIN"
     "--env" "DEVCONTAINER=true"
     "--env" "TERM=xterm-256color"
-    "-v" "${CODE_DIR}:/root/dev"
+    # make sure that rust analzyer has the same paths on the container
+    "-v" "${CODE_DIR}:"${CODE_DIR}
+    "-w" "${CODE_DIR}"
+    # help lspmux
+    "-v" "${SOCKET_PATH}:${SOCKET_PATH}"
+    "--env" "RA_MUX_ADDR=${SOCKET_PATH}"
+    # claude persistence
     "-v" "${CLAUDE_DATA}:/root/.claude"
     "-v" "${HOME}/.claude.json:/root/.claude.json"
     "-v" "${HOME}/.gitconfig.claude:/root/.gitconfig:ro"
+    # for the claude agent/subagent orchestration
+    "-v" "${AGENT_DIR}/CLAUDE.md:/root/.claude/CLAUDE.md:ro"
+    "-v" "${AGENT_DIR}/log-scout.md:/root/.claude/agents/log-scout.md:ro"
+    "-v" "${AGENT_DIR}/rust-explorer.md:/root/.claude/agents/rust-explorer.md:ro"
+    "-v" "${AGENT_DIR}/skills/ra-tool.md:/root/.claude/skills/ra-tool.md:ro"
+    "-v" "${AGENT_DIR}/skills/ripgrep.md:/root/.claude/skills/ripgrep.md:ro"
 )
-
-# mount rust target dir on separate volume
-if [[ -f "Cargo.toml" ]]; then
-    echo "Detected Cargo.toml - isolated Rust build target enabled"
-    DOCKER_FLAGS+=("-v" "claude_rust_target:/root/rust_target")
-    DOCKER_FLAGS+=("-v" "claude_cargo_cache:/usr/local/cargo")
-    DOCKER_FLAGS+=("--env" "CARGO_TARGET_DIR=/root/rust_target")
-fi
 
 # Flag Parsing
 ENABLE_GIT_WRITE=false
@@ -34,7 +42,7 @@ for arg in "$@"; do
     case "$arg" in
         -g)
             echo "Git Write Access Enabled (Agents can commit)"
-            DOCKER_FLAGS+=("-v" "${CODE_DIR}/.git:/root/dev/.git:rw")
+            DOCKER_FLAGS+=("-v" "${CODE_DIR}/.git:${CODE_DIR}/.git:rw")
             ENABLE_GIT_WRITE=true
             ;;
         -ka)
@@ -54,7 +62,7 @@ for arg in "$@"; do
 done
 
 if [ "$ENABLE_GIT_WRITE" = false ]; then
-    DOCKER_FLAGS+=("-v" "${CODE_DIR}/.git:/root/dev/.git:ro")
+    DOCKER_FLAGS+=("-v" "${CODE_DIR}/.git:${CODE_DIR}.git:ro")
 fi
 
 # Launch Container

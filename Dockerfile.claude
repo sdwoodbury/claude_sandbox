@@ -5,6 +5,7 @@ ENV TZ="$TZ"
 ARG GIT_DELTA_VERSION=0.18.2
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ripgrep python3\
     curl wget ca-certificates \
     less git procps sudo fzf zsh man-db unzip gnupg2 gh \
     iproute2 dnsutils jq nano vim \
@@ -65,23 +66,18 @@ RUN echo 'export ZSH="/root/.oh-my-zsh"' > /root/.zshrc && \
     echo 'plugins=(git fzf)' >> /root/.zshrc && \
     echo 'source $ZSH/oh-my-zsh.sh' >> /root/.zshrc
 
-# Toolchains: CMake & Rust 
+# Toolchains: CMake
 RUN ARCH=$(uname -m) && \
     wget -q https://github.com/Kitware/CMake/releases/download/v3.31.1/cmake-3.31.1-linux-${ARCH}.tar.gz && \
     tar -xvf cmake-3.31.1-linux-${ARCH}.tar.gz --strip-components=1 -C /usr/local && \
     rm cmake-3.31.1-linux-${ARCH}.tar.gz
 
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:/root/.local/bin:/root/.krew/bin:$PATH \
-    CARGO_TARGET_DIR=/root/rust_target \
-    ENABLE_LSP_TOOLS=1
+ENV PATH=/usr/local/cargo/bin:/root/.local/bin:/root/.krew/bin:$PATH
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path && \
-    # Ensure rustup is in path for the current build shell
-    /usr/local/cargo/bin/rustup default stable && \
-    # for claude rust LSP plugin
-    /usr/local/cargo/bin/rustup component add rust-analyzer
+# Ensure the cargo path is added to the global bash/zsh configs for all shells
+RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/environment && \
+    echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.bashrc && \
+    echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.zshrc
 
 # user must install the claude rust analyzer plugins when claude is already logged in. mounting the .claude directory on volume will make this persist
 
@@ -89,8 +85,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no
 RUN mkdir -p /root/rust_target /root/.claude /commandhistory && \
     touch /commandhistory/.bash_history
 
+COPY ra_tool.py /bin/ra_tool.py
+RUN chmod +x /bin/ra_tool.py
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
-WORKDIR /root/dev
+WORKDIR /root
 USER root
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
