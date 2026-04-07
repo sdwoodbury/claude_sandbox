@@ -10,8 +10,7 @@ import argparse
 import socket
 from typing import Optional, List, Dict, Any
 
-# The path where you mounted the host socket into Docker
-SOCKET_PATH = os.environ.get("RA_MUX_ADDR", "/tmp/ra-multiplex.sock")
+LSP_SOCKET = 27631
 
 # --- Configuration ---
 RESPONSE_TIMEOUT = 25
@@ -365,9 +364,9 @@ class RustAnalyzerLSPClient:
 
     def start(self):
         try:
-            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            self.sock.connect(SOCKET_PATH)
-            log_stderr(f"Connected to lspmux at {SOCKET_PATH}")
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock.connect(("127.0.0.1", LSP_SOCKET))
+            log_stderr(f"Connected to lspmux at localhost:{LSP_SOCKET}")
             self.reader_thread = threading.Thread(target=self._decode_message_stream, daemon=True)
             self.reader_thread.start()
             log_stderr("[Main] socket reader thread started.")
@@ -442,6 +441,16 @@ class RustAnalyzerLSPClient:
             "params": {
                 "processId": os.getpid(),
                 "rootUri": self.project_root.as_uri(),
+                "initializationOptions": {
+                    "lspMux": {
+                        "version": "1",
+                        "method": "connect",
+                        "server": "rust-analyzer",
+                    },
+                    "rust-analyzer": {
+                        "cargo": { "buildScripts": { "enable": False } }
+                    }
+                },
                 "capabilities": {
                     "window": {"workDoneProgress": True},
                     "textDocument": {

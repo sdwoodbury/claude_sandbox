@@ -7,9 +7,6 @@ CODE_DIR="$(pwd -P)"
 CLAUDE_DATA="claude_data_vol"
 AGENT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)/../agent_config"
 
-# for lspmux
-SOCKET_PATH="/tmp/ra-multiplex.sock"
-
 # Define Base Mounts
 DOCKER_FLAGS=(
     "-it" "--rm"
@@ -20,9 +17,7 @@ DOCKER_FLAGS=(
     # make sure that rust analzyer has the same paths on the container
     "-v" "${CODE_DIR}:"${CODE_DIR}
     "-w" "${CODE_DIR}"
-    # help lspmux
-    "-v" "${SOCKET_PATH}:${SOCKET_PATH}"
-    "--env" "RA_MUX_ADDR=${SOCKET_PATH}"
+    "--add-host=host.docker.internal:host-gateway"
     # claude persistence
     "-v" "${CLAUDE_DATA}:/root/.claude"
     "-v" "${HOME}/.claude.json:/root/.claude.json"

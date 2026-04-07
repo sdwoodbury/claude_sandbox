@@ -5,7 +5,16 @@ description: "Use when: navigating Rust symbols, definitions, references, and lo
 
 # Dependencies
 This skill requires the `ra-tool` skill to be loaded. Use `/bin/ra_tool.py` as documented in that skill.
-- **ALWAYS** use `/bin/ra_tool.py` via Bash for Rust semantic queries.
+
+# Rust Semantic and Syntactic Analysis
+- **ALWAYS** use `/bin/ra_tool.py` via Bash for Rust semantic/syntactic analysis.
+  - Use grep/search only to locate full file paths or scan chunks when `ra_tool.py` cannot resolve it.
+    - Note: grep is text-only. `ra_tool.py` understands Rust types and can distinguish between a definition and a comment/string.
+  - If a full file path is known, `documentSymbols` lists the functions, structs, enums, and more defined in a file.
+  - If investigating how a function, struct, or variable is used, use `references`, `implementations`, and `workspaceSymbols`.
+  - If searching for a symbol or function, prefer `ra_tool.py` for file and line numbers to drive targeted reads.
+- **CAPABILITIES:** it supports definition, references, hover, typeDefinition, implementations, documentSymbols, and workspaceSymbols
+- **Context**: Treat this as your LSP.
 
 # CRITICAL OPERATING PRINCIPLE: TERMINAL STATE
 **You are a stateless data-pipe.** Your task is complete the moment the code is retrieved.

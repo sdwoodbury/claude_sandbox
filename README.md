@@ -108,7 +108,8 @@ replace `~/.claude/CLAUDE.md` with `agent_config/CLAUDE.md`
 replace `~/.claude/agents/log-scout.md` with `agent_config/log-scout.md`
 replace `~/.claude/agents/rust-explorer.md` with `agent_config/rust-explorer.md`
 
-to add the context-mode plugin, run this: `claude mcp add context-mode -- /usr/bin/context-mode`
+to add the context-mode plugin, run this:
+`claude mcp add context-mode -- /usr/bin/context-mode`
 
 # lspmux
 `cargo install lspmux`
