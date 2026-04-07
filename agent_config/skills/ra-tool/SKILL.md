@@ -1,10 +1,7 @@
-# ra_tool.py - Rust Analyzer LSP Client
-
-A CLI tool for querying a rust-analyzer LSP server via a multiplexer socket.
-
-## Connection
-
-Connects to the LSP mux server at `/tmp/ra-multiplex.sock` (override with `RA_MUX_ADDR` env var).
+---
+name: ra-tool
+description: "Use when: querying rust-analyzer for symbol definitions, references, type info, and workspace symbols with precise semantic understanding."
+---
 
 ## Usage
 

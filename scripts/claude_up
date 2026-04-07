@@ -31,8 +31,9 @@ DOCKER_FLAGS=(
     "-v" "${AGENT_DIR}/CLAUDE.md:/root/.claude/CLAUDE.md:ro"
     "-v" "${AGENT_DIR}/log-scout.md:/root/.claude/agents/log-scout.md:ro"
     "-v" "${AGENT_DIR}/rust-explorer.md:/root/.claude/agents/rust-explorer.md:ro"
-    "-v" "${AGENT_DIR}/skills/ra-tool.md:/root/.claude/skills/ra-tool.md:ro"
-    "-v" "${AGENT_DIR}/skills/ripgrep.md:/root/.claude/skills/ripgrep.md:ro"
+    "-v" "${AGENT_DIR}/orchestrator.md:/root/.claude/agents/orchestrator.md:ro"
+    "-v" "${AGENT_DIR}/human-loop.md:/root/.claude/agents/human-loop.md:ro"
+    "-v" "${AGENT_DIR}/skills:/root/.claude/skills:ro"
 )
 
 # Flag Parsing
