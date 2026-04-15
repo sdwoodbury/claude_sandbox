@@ -79,6 +79,9 @@ RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/environment && \
     echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.bashrc && \
     echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.zshrc
 
+# Tells Claude Code it is running in a secure, isolated sandbox
+ENV IS_SANDBOX=1
+
 # user must install the claude rust analyzer plugins when claude is already logged in. mounting the .claude directory on volume will make this persist
 
 # Setup workspace and directories

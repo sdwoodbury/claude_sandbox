@@ -19,6 +19,8 @@ Ensure that the file paths passed to the tool are absolute paths that match the 
 | `-v, --verbose` | Enable detailed diagnostic output (stderr) |
 | `--format json\|markdown` | Output format (default: json) |
 
+**ALWAYS** use `--format markdown`
+
 ## Commands
 
 ### Position-based commands (require file + line + column)

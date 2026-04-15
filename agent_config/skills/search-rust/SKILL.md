@@ -6,6 +6,12 @@ description: "Use when: navigating Rust symbols, definitions, references, and lo
 # Dependencies
 This skill requires the `ra-tool` skill to be loaded. Use `/bin/ra_tool.py` as documented in that skill.
 
+# TOOL PREFERENCES
+Prefer Search, then Bash(rg) (rg = ripgrep), then Bash(grep).
+Prefer Search over Bash(sed)
+Prefer Edit over Bash(sed)
+Prefer Bash(/bin/ra_tool.py) (via the `ra-tool` skill) for finding locations/usages of struct, variables, functions, and for determining what functions and symbols are in a file.
+
 # Rust Semantic and Syntactic Analysis
 - **ALWAYS** use `/bin/ra_tool.py` via Bash for Rust semantic/syntactic analysis.
   - Use grep/search only to locate full file paths or scan chunks when `ra_tool.py` cannot resolve it.

@@ -1,6 +1,6 @@
 ---
 name: orchestrator
-model: claude-opus-4-5
+model: claude-sonnet-4-6
 effort: medium
 user-invocable: true
 description: Use Opus model for thinking; use sub-agents for gathering information

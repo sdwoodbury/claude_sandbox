@@ -17,7 +17,7 @@ DOCKER_FLAGS=(
     # make sure that rust analzyer has the same paths on the container
     "-v" "${CODE_DIR}:"${CODE_DIR}
     "-w" "${CODE_DIR}"
-    "--add-host=host.docker.internal:host-gateway"
+    "-v" "/tmp/lspmux.sock:/tmp/lspmux.sock"
     # claude persistence
     "-v" "${CLAUDE_DATA}:/root/.claude"
     "-v" "${HOME}/.claude.json:/root/.claude.json"
@@ -59,6 +59,10 @@ done
 
 if [ "$ENABLE_GIT_WRITE" = false ]; then
     DOCKER_FLAGS+=("-v" "${CODE_DIR}/.git:${CODE_DIR}.git:ro")
+fi
+
+if [ -f "${CODE_DIR}/Cargo.toml" ]; then
+    DOCKER_FLAGS+=("-v" "${HOME}/.cargo:/${HOME}/.cargo:ro")
 fi
 
 # Launch Container

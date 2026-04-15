@@ -10,7 +10,7 @@ import argparse
 import socket
 from typing import Optional, List, Dict, Any
 
-LSP_SOCKET = 27631
+SOCKET_ADDR = "/tmp/lspmux.sock"
 
 # --- Configuration ---
 RESPONSE_TIMEOUT = 25
@@ -364,9 +364,9 @@ class RustAnalyzerLSPClient:
 
     def start(self):
         try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect(("127.0.0.1", LSP_SOCKET))
-            log_stderr(f"Connected to lspmux at localhost:{LSP_SOCKET}")
+
+            self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.sock.connect(SOCKET_ADDR)
             self.reader_thread = threading.Thread(target=self._decode_message_stream, daemon=True)
             self.reader_thread.start()
             log_stderr("[Main] socket reader thread started.")

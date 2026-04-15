@@ -68,11 +68,6 @@ done
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 
-# Allow the agent to talk to the LSP Proxy on the host
-# host-gateway usually resolves to 172.17.0.1 or similar
-HOST_GATEWAY=$(ip route | grep default | awk '{print $3}')
-iptables -A OUTPUT -d "$HOST_GATEWAY" -p tcp --dport 27631 -j ACCEPT
-
 # Block Localnet (Final Catch-all)
 iptables -A OUTPUT -d 10.0.0.0/8 -j REJECT
 iptables -A OUTPUT -d 172.16.0.0/12 -j REJECT
