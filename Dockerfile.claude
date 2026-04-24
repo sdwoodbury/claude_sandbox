@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     less git procps sudo fzf zsh man-db unzip gnupg2 gh \
     iproute2 dnsutils jq nano vim \
     libssl-dev pkg-config tmux \
+    clang libclang-dev protobuf-compiler \
+    file make \
     iptables libcap2-bin \
     nodejs npm \
     openssh-client \
@@ -72,6 +74,11 @@ RUN ARCH=$(uname -m) && \
     tar -xvf cmake-3.31.1-linux-${ARCH}.tar.gz --strip-components=1 -C /usr/local && \
     rm cmake-3.31.1-linux-${ARCH}.tar.gz
 
+# Build and install mold
+RUN wget -q https://github.com/rui314/mold/releases/download/v2.41.0/mold-2.41.0-x86_64-linux.tar.gz && \
+    tar -xzf mold-2.41.0-x86_64-linux.tar.gz --strip-components=1 -C /usr/local && \
+    rm mold-2.41.0-x86_64-linux.tar.gz
+
 ENV PATH=/usr/local/cargo/bin:/root/.local/bin:/root/.krew/bin:$PATH
 
 # Ensure the cargo path is added to the global bash/zsh configs for all shells
@@ -91,6 +98,9 @@ RUN mkdir -p /root/rust_target /root/.claude /commandhistory && \
 COPY ra_tool.py /bin/ra_tool.py
 RUN chmod +x /bin/ra_tool.py
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+
+COPY scripts/agent /bin/agent
+RUN chmod +x /bin/agent
 
 WORKDIR /root
 USER root
