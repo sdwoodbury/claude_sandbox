@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+#set -e
 if [ "${ENABLE_KA:-false}" = "true" ]; then
     echo "🔓 Firewall disabled (KA mode - unrestricted AWS/kubectl access)"
     exec /usr/sbin/capsh --drop=cap_net_admin --user=root -- -c "exec /bin/bash --login -i"
@@ -26,6 +26,7 @@ iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 # Critical: Temporary DNS Allow for Resolution
 # This ensures 'dig' works in the next step.
 iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
+iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
 
 # Resolve and allow specific domains
 ALLOWED_DOMAINS=(
@@ -51,6 +52,7 @@ done
 
 # close temporary dns hole
 iptables -D OUTPUT -p udp --dport 53 -j ACCEPT
+iptables -D OUTPUT -p tcp --dport 53 -j ACCEPT
 
 # Allow DNS only to Google and Cloudflare
 # This allows resolving allowed domains but prevents exfiltration to rogue DNS servers

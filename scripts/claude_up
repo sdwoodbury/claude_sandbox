@@ -31,6 +31,13 @@ DOCKER_FLAGS=(
     "-v" "${AGENT_DIR}/skills:/root/.claude/skills:ro"
 )
 
+if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "${SSH_AUTH_SOCK}" ]; then
+    DOCKER_FLAGS+=("-v" "${SSH_AUTH_SOCK}:/ssh-agent.sock")
+    DOCKER_FLAGS+=("--env" "SSH_AUTH_SOCK=/ssh-agent.sock")
+else
+    echo "Warning: SSH_AUTH_SOCK not set or not a socket; SSH signing may fail"
+fi
+
 # Flag Parsing
 ENABLE_GIT_WRITE=false
 ENABLE_CARGO=false
@@ -70,7 +77,7 @@ if [ "$ENABLE_GIT_WRITE" = false ]; then
 fi
 
 # Always mount cargo caches (registry + git) for reasoning about source code
-if [ -d "Cargo.toml" ]; then
+if [ -f "Cargo.toml" ]; then
     DOCKER_FLAGS+=("-v" "${HOME}/.cargo/registry:${CARGO_CACHE_TARGET}/registry")
     DOCKER_FLAGS+=("-v" "${HOME}/.cargo/git:${CARGO_CACHE_TARGET}/git")
 fi

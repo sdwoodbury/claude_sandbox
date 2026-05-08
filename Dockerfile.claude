@@ -5,8 +5,8 @@ ENV TZ="$TZ"
 ARG GIT_DELTA_VERSION=0.18.2
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ripgrep python3\
     curl wget ca-certificates \
+    ripgrep python3\
     less git procps sudo fzf zsh man-db unzip gnupg2 gh \
     iproute2 dnsutils jq nano vim \
     libssl-dev pkg-config tmux \
