@@ -60,7 +60,9 @@ RUN ARCH=$(dpkg --print-architecture) && \
     rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
 # install claude
-RUN curl -fsSL https://claude.ai/install.sh | bash -s stable
+# 2.1.2 was 4.6 era
+# 2.1.116 was 4.7 after the patch
+RUN curl -fsSL https://claude.ai/install.sh | bash -s 2.1.116
 
 # install zsh
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
@@ -88,6 +90,9 @@ RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/environment && \
 
 # Tells Claude Code it is running in a secure, isolated sandbox
 ENV IS_SANDBOX=1
+# disable certain prompts that do bad things
+ENV CLAUDE_CODE_TEAM_ONBOARDING=0
+ENV DISABLE_TELEMETRY=1
 
 # user must install the claude rust analyzer plugins when claude is already logged in. mounting the .claude directory on volume will make this persist
 

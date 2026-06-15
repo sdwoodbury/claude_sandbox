@@ -1,0 +1,17 @@
+{
+  "hasCompletedOnboarding": true,
+  "autoUpdates": false,
+  "autoUpdatesChannel": "manual",
+  "unpinOpus47LaunchEffort": true,
+  "todoFeatureEnabled": false,
+  "fileCheckpointingEnabled": false,
+  "autoInstallIdeExtension": false,
+  "cachedStatsigGates": {
+    "tengu_log_1p_events": false,
+    "tengu_team_onboarding_flow": false
+  },
+  "cachedGrowthBookFeatures": {
+    "tengu_flint_harbor_prompt": "disabled",
+    "tengu_flint_harbor": false
+  }
+}
