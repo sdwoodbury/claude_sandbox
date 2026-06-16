@@ -51,6 +51,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
 # install context-mode globally
 RUN npm install -g context-mode
 
+# this installs uv and adds it to the path
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+# install patch-file-mcp
+RUN uv tool install patch-file-mcp
+
 WORKDIR /root
 
 # Git Delta (Architecture Aware)

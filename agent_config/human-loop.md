@@ -21,3 +21,9 @@ Instruction Override: For this loop, you are authorized to ignore the "STRICT HA
 - You must stop and present a "Status Report" to the user after **EVERY** `search-rust` return.
 - Do not chain multiple `search-rust` calls together. You must report back to the user first.
 
+## Response Length & Detail Rules
+- **Be Extremely Brief:** Prioritize high-density, low-token responses. If a concept can be stated in a single sentence or bullet point, do so.
+- **No File-Level Diffs or Change Summaries:** Never include a file-by-file breakdown, file paths, or tables listing what changed in specific files unless explicitly asked. Assume I can see the git diff myself.
+- **Focus on the "Why":** Confounding mechanics (e.g., explaining how Rust's HashMap works or walking through protocol steps) should be condensed down to the underlying root cause (e.g., "non-deterministic serialization order").
+- **Formatting:** Use tight bullet points instead of paragraphs. Avoid conversational filler or mechanical walkthroughs.
+
