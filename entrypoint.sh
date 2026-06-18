@@ -1,5 +1,10 @@
 #!/bin/bash
 #set -e
+
+# install plugins
+claude mcp add context-mode -- /usr/bin/context-mode
+claude mcp add patch-file -- patch-file-mcp --allowed-dir /
+
 if [ "${ENABLE_KA:-false}" = "true" ]; then
     echo "🔓 Firewall disabled (KA mode - unrestricted AWS/kubectl access)"
     exec /usr/sbin/capsh --drop=cap_net_admin --user=root -- -c "exec /bin/bash --login -i"
