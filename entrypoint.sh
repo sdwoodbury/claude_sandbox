@@ -2,8 +2,9 @@
 #set -e
 
 # install plugins
-claude mcp add context-mode -- /usr/bin/context-mode
-claude mcp add patch-file -- patch-file-mcp --allowed-dir /
+claude mcp add --transport stdio context-mode -- context-mode
+claude mcp add --scope project --transport stdio patch-file -- patch-file-mcp --allowed-dir /
+claude mcp add narsil-middleman -- python3 /bin/narsil_mcp_middleman.py
 
 if [ "${ENABLE_KA:-false}" = "true" ]; then
     echo "🔓 Firewall disabled (KA mode - unrestricted AWS/kubectl access)"
@@ -84,4 +85,6 @@ iptables -A OUTPUT -d 169.254.0.0/16 -j REJECT
 # --- PRIVILEGE DROP & HANDOVER ---
 echo "🔒 Firewall locked. Dropping NET_ADMIN..."
 # Using root user to preserve host UID mapping for files
+mkdir -p /var/run /var/log/
+/usr/sbin/capsh --drop=cap_net_admin --user=root -- -c "/usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"
 exec /usr/sbin/capsh --drop=cap_net_admin --user=root -- -c "exec /bin/bash --login -i"

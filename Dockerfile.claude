@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
 ARG TZ=UTC
 ENV TZ="$TZ"
@@ -13,9 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     clang libclang-dev protobuf-compiler \
     file make \
     iptables libcap2-bin \
-    nodejs npm \
     openssh-client \
+    supervisor \
+    locales \
+    && locale-gen en_US.UTF-8 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 # Install kubectl
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
@@ -94,6 +99,10 @@ RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/environment && \
     echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.bashrc && \
     echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.zshrc
 
+# Convenience alias for unattended claude
+RUN echo "alias run='claude --dangerously-skip-permissions'" >> /root/.bashrc && \
+    echo "alias run='claude --dangerously-skip-permissions'" >> /root/.zshrc
+
 # Tells Claude Code it is running in a secure, isolated sandbox
 ENV IS_SANDBOX=1
 # disable certain prompts that do bad things
@@ -109,9 +118,21 @@ RUN mkdir -p /root/rust_target /root/.claude /commandhistory && \
 COPY ra_tool.py /bin/ra_tool.py
 RUN chmod +x /bin/ra_tool.py
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY narsil_client.py /bin/narsil_client.py
+RUN chmod +x /bin/narsil_client.py
+COPY narsil_mcp_middleman.py /bin/narsil_mcp_middleman.py
+RUN chmod +x /bin/narsil_mcp_middleman.py
 
 COPY scripts/agent /bin/agent
 RUN chmod +x /bin/agent
+
+# install deps for narsil_mcp_middleman.py
+RUN uv lock --script /bin/narsil_mcp_middleman.py
+RUN uv export --script /bin/narsil_mcp_middleman.py --format requirements-txt > requirements.txt
+RUN uv pip install --system -r requirements.txt
+RUN rm -rf /root/.cache/uv
+
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 WORKDIR /root
 USER root

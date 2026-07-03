@@ -104,9 +104,7 @@ aws eks list-clusters
 ```
 
 # configuration
-replace `~/.claude/CLAUDE.md` with `agent_config/CLAUDE.md`
-replace `~/.claude/agents/log-scout.md` with `agent_config/log-scout.md`
-replace `~/.claude/agents/rust-explorer.md` with `agent_config/rust-explorer.md`
+To use the `narsil-mcp` server, use `cargo install` to install [this](git@github.com:sdwoodbury/narsil-mcp.git) with `--features call-graph`. `git clone` it and then run `cargo install . --features call-graph`.
 
 to add the context-mode plugin, run this:
 `claude mcp add context-mode -- /usr/bin/context-mode`

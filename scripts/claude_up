@@ -15,7 +15,7 @@ DOCKER_FLAGS=(
     "--env" "DEVCONTAINER=true"
     "--env" "TERM=xterm-256color"
     # make sure that rust analzyer has the same paths on the container
-    "-v" "${CODE_DIR}:"${CODE_DIR}
+    "-v" "${CODE_DIR}:${CODE_DIR}"
     "-w" "${CODE_DIR}"
     "-v" "/tmp/lspmux.sock:/tmp/lspmux.sock"
     # claude persistence
@@ -28,8 +28,17 @@ DOCKER_FLAGS=(
     "-v" "${AGENT_DIR}/rust-explorer.md:/root/.claude/agents/rust-explorer.md:ro"
     "-v" "${AGENT_DIR}/orchestrator.md:/root/.claude/agents/orchestrator.md:ro"
     "-v" "${AGENT_DIR}/human-loop.md:/root/.claude/agents/human-loop.md:ro"
+    "-v" "${AGENT_DIR}/smart-explorer.md:/root/.claude/agents/smart-explorer.md:ro"
+    "-v" "${AGENT_DIR}/my-claude.md:/root/.claude/agents/my-claude.md:ro"
     "-v" "${AGENT_DIR}/skills:/root/.claude/skills:ro"
 )
+
+# Mount host-installed narsil-mcp binary (install on host with: cargo install narsil-mcp)
+if [ -x "${HOME}/.cargo/bin/narsil-mcp" ]; then
+    DOCKER_FLAGS+=("-v" "${HOME}/.cargo/bin/narsil-mcp:/usr/local/bin/narsil-mcp:ro")
+else
+    echo "Warning: ${HOME}/.cargo/bin/narsil-mcp not found on host; narsil-mcp will be disabled. Install with: cargo install narsil-mcp"
+fi
 
 if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "${SSH_AUTH_SOCK}" ]; then
     DOCKER_FLAGS+=("-v" "${SSH_AUTH_SOCK}:/ssh-agent.sock")

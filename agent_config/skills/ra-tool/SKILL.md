@@ -19,8 +19,6 @@ Ensure that the file paths passed to the tool are absolute paths that match the 
 | `-v, --verbose` | Enable detailed diagnostic output (stderr) |
 | `--format json\|markdown` | Output format (default: json) |
 
-**ALWAYS** use `--format markdown`
-
 ## Commands
 
 ### Position-based commands (require file + line + column)
@@ -69,7 +67,7 @@ Returns all symbols (functions, structs, impls, etc.) defined in the file with t
 
 #### `workspaceSymbols` - Search all symbols
 ```bash
-/bin/ra_tool.py workspaceSymbols <query>
+/bin/ra_tool.py workspaceSymbols <symbol_name>
 ```
 Fuzzy-searches the entire workspace for symbols matching the query string.
 
