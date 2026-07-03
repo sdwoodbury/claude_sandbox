@@ -103,6 +103,9 @@ RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/environment && \
 RUN echo "alias run='claude --dangerously-skip-permissions'" >> /root/.bashrc && \
     echo "alias run='claude --dangerously-skip-permissions'" >> /root/.zshrc
 
+RUN echo "alias run2='claude --agent my-claude --dangerously-skip-permissions'" >> /root/.bashrc && \
+    echo "alias run2='claude --agent my-claude --dangerously-skip-permissions'" >> /root/.zshrc
+
 # Tells Claude Code it is running in a secure, isolated sandbox
 ENV IS_SANDBOX=1
 # disable certain prompts that do bad things
