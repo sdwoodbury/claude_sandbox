@@ -4,6 +4,10 @@
 #     "mcp",
 # ]
 # ///
+
+"""
+I had trouble getting Claude to use this and opted for skills instead.
+"""
  
 import asyncio
 import subprocess
@@ -33,28 +37,26 @@ def run_narsil_cli(args: List[str]) -> str:
 # ==========================================
 
 @mcp.tool()
-async def scan_file_skeleton(path: str, no_imports: bool = False) -> str:
+async def scan_file_skeleton(file_path: str) -> str:
     """
     CRITICAL: Use this FIRST when exploring a new file.
     Returns a lightweight outline of the file's structure broken down by AST logic.
     Use this to map out the file before doing targeted reads.
     """
-    args = ["chunks", path]
-    if no_imports:
-        args.append("--no-imports")
-    
+    args = ["file-skeleton", "--file", file_path]  
     raw_chunks = run_narsil_cli(args)
-    # Optional: Add your custom Python logic here to strip implementation bodies
     return raw_chunks
 
 @mcp.tool()
-async def read_excerpt(path: str, target_lines: List[int]) -> str:
+async def read_excerpt(file_path: str, target_lines: List[int]) -> str:
     """
-    Reads specific lines and auto-expands to their full enclosing function/class scope.
+    CRITICAL: Use this to retrieve needed context to follow up after scan_file_skeleton, find_references, etc.
+    For each line in line_numbers, get the AST chunk that contains that line.
     You MUST pass an array of integers for the target_lines.
     """
+    # note that narsil provides an excerpt function. but the targeted chunk reading is desired here.
     # Flattens the array of ints into string arguments for the CLI
-    args = ["excerpt", path] + [str(line) for line in target_lines]
+    args = ["get-chunks-by-lines", file_path, "--lines"] + [str(line) for line in target_lines]
     return run_narsil_cli(args)
 
 @mcp.tool()
@@ -270,7 +272,9 @@ async def view_repository_structure(max_depth: int = 3) -> str:
     """
     return run_narsil_cli(["structure", "--max-depth", str(max_depth)])
 
-
-if __name__ == "__main__":
+def main():
     # Runs the server using standard stdio transport
     mcp.run()
+
+if __name__ == "__main__":
+    main()

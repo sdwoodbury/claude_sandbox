@@ -2,9 +2,8 @@
 #set -e
 
 # install plugins
-claude mcp add --transport stdio context-mode -- context-mode
+# claude mcp add --scope project --transport stdio context-mode -- context-mode
 claude mcp add --scope project --transport stdio patch-file -- patch-file-mcp --allowed-dir /
-claude mcp add narsil-middleman -- python3 /bin/narsil_mcp_middleman.py
 
 if [ "${ENABLE_KA:-false}" = "true" ]; then
     echo "🔓 Firewall disabled (KA mode - unrestricted AWS/kubectl access)"

@@ -73,7 +73,8 @@ RUN ARCH=$(dpkg --print-architecture) && \
 # install claude
 # 2.1.2 was 4.6 era
 # 2.1.116 was 4.7 after the patch
-RUN curl -fsSL https://claude.ai/install.sh | bash -s 2.1.116
+# 2.1.197 is the june 30, 2026 release
+RUN curl -fsSL https://claude.ai/install.sh | bash -s 2.1.197
 
 # install zsh
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
@@ -103,14 +104,19 @@ RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/environment && \
 RUN echo "alias run='claude --dangerously-skip-permissions'" >> /root/.bashrc && \
     echo "alias run='claude --dangerously-skip-permissions'" >> /root/.zshrc
 
-RUN echo "alias run2='claude --agent my-claude --dangerously-skip-permissions'" >> /root/.bashrc && \
-    echo "alias run2='claude --agent my-claude --dangerously-skip-permissions'" >> /root/.zshrc
+RUN echo "alias run2='claude --agent opus-agent --dangerously-skip-permissions'" >> /root/.bashrc && \
+    echo "alias run2='claude --agent opus-agent --dangerously-skip-permissions'" >> /root/.zshrc
+
+RUN echo "alias run3='claude --agent sonnet-agent --dangerously-skip-permissions'" >> /root/.bashrc && \
+    echo "alias run3='claude --agent sonnet-agent --dangerously-skip-permissions'" >> /root/.zshrc
 
 # Tells Claude Code it is running in a secure, isolated sandbox
 ENV IS_SANDBOX=1
 # disable certain prompts that do bad things
 ENV CLAUDE_CODE_TEAM_ONBOARDING=0
 ENV DISABLE_TELEMETRY=1
+ENV DISABLE_AUTOUPDATER=1
+ENV ENABLE_TOOL_SEARCH=1
 
 # user must install the claude rust analyzer plugins when claude is already logged in. mounting the .claude directory on volume will make this persist
 
@@ -123,17 +129,15 @@ RUN chmod +x /bin/ra_tool.py
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY narsil_client.py /bin/narsil_client.py
 RUN chmod +x /bin/narsil_client.py
-COPY narsil_mcp_middleman.py /bin/narsil_mcp_middleman.py
-RUN chmod +x /bin/narsil_mcp_middleman.py
+
+RUN uv pip install --system typer typing_extensions
+
+WORKDIR /root
 
 COPY scripts/agent /bin/agent
 RUN chmod +x /bin/agent
 
-# install deps for narsil_mcp_middleman.py
-RUN uv lock --script /bin/narsil_mcp_middleman.py
-RUN uv export --script /bin/narsil_mcp_middleman.py --format requirements-txt > requirements.txt
-RUN uv pip install --system -r requirements.txt
-RUN rm -rf /root/.cache/uv
+RUN echo "alias narsil='/bin/narsil_client.py'" >> /root/.bashrc
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

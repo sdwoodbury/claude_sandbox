@@ -1,12 +1,73 @@
 #!/usr/bin/env python3
 import sys
+import bisect
 import json
 import socket
-import argparse
+import subprocess
 import os
+from enum import Enum
+from typing import List, Optional
+from typing_extensions import Annotated
+import typer
 
 sys.stdout.reconfigure(encoding="utf-8")
 SOCKET_PATH = "/tmp/narsil_mcp"
+
+# Initialize Typer App
+app = typer.Typer(help="Narsil CLI Client", add_completion=False)
+
+# Reusable default repo configuration matching original behavior
+DEFAULT_REPO = os.path.basename(os.getcwd())
+
+# ── Shared Enums for Strict CLI Validation ─────────────────────────────────
+
+class SymbolType(str, Enum):
+    struct = "struct"
+    class_ = "class"
+    enum = "enum"
+    interface = "interface"
+    function = "function"
+    method = "method"
+    trait = "trait"
+    type = "type"
+    all = "all"
+
+class Direction(str, Enum):
+    imports = "imports"
+    imported_by = "imported_by"
+    both = "both"
+
+class Kind(str, Enum):
+    function = "function"
+    class_ = "class"
+    struct = "struct"
+    interface = "interface"
+    enum = "enum"
+    variable = "variable"
+    all = "all"
+
+class DocType(str, Enum):
+    file = "file"
+    function = "function"
+    class_ = "class"
+    struct = "struct"
+    method = "method"
+
+class HybridMode(str, Enum):
+    hybrid = "hybrid"
+    bm25 = "bm25"
+    tfidf = "tfidf"
+
+class ChunkType(str, Enum):
+    function = "function"
+    method = "method"
+    class_ = "class"
+    trait = "trait"
+    module = "module"
+    all = "all"
+
+
+# ── Core Communication and Utility Logic ────────────────────────────────────
 
 def send_request(tool_name, params):
     try:
@@ -42,257 +103,479 @@ def send_request(tool_name, params):
 
         content = resp.get("result", {}).get("content", [])
         if content:
-            return content[0].get("text", "")
-        return "No content returned."
+            text = content[0].get("text", "")
+            try:
+              text = text.encode('cp1252').decode('utf-8')
+            except (UnicodeEncodeError, UnicodeDecodeError):
+              pass
+            return text
+        return "No content retuned"
 
     except FileNotFoundError:
         return f"Error: Socket {SOCKET_PATH} not found. Is narsil-mcp running?"
     except Exception as e:
         return f"Communication error: {e}"
 
-def main():
-    parser = argparse.ArgumentParser(description="Narsil CLI Client")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+def get_document_symbols(file_path: str) -> dict:
+    """Executes ra_tool.py to retrieve document symbols for a given file
+    and parses the result into a dict of {line_number -> {name, container}}.
+    """
+    cmd = ["/bin/ra_tool.py", "documentSymbols", file_path]
 
-    # Shared --repo flag: defaults to the current directory name
-    repo_parent = argparse.ArgumentParser(add_help=False)
-    repo_parent.add_argument("--repo", default=os.path.basename(os.getcwd()),
-                             help="Repository name (default: current directory name)")
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    data = json.loads(result.stdout)
+    if data.get("status") != "success":
+        error_msg = data.get("message", "Unknown error reported by tool")
+        raise RuntimeError(f"ra_tool.py execution failed: {error_msg}")
 
-    # ── Symbol search and navigation ──────────────────────────────────────────
+    ra_map = {}
+    symbols = data.get("result", [])
 
-    p_sym = subparsers.add_parser("symbol", help="Get symbol source with surrounding context", parents=[repo_parent])
-    p_sym.add_argument("symbol")
-    p_sym.add_argument("--context-lines", type=int, default=0)
+    for sym in symbols:
+        location = sym.get("location", {})
+        line = location.get("line")
 
-    p_exc = subparsers.add_parser("excerpt", help="Read a line, auto-expanded to its full scope", parents=[repo_parent])
-    p_exc.add_argument("path")
-    p_exc.add_argument("lines", type=int, nargs="+", help="One or more line numbers to extract around")
+        if line is not None:
+            ra_map[int(line)] = {
+                "name": sym.get("name"),
+                "container": sym.get("containerName"),
+            }
+
+    return ra_map
+
+def get_file_symbols(file_path: str, raw_output: str) -> str:
+    """Parses find-symbols output by splitting chunks on '##'."""
+    ra_map = {}
+    try:
+        ra_map = get_document_symbols(file_path)
+    except subprocess.CalledProcessError as e:
+        return f"Subprocess error invoking ra_tools.py: {e.stderr.strip()}"
+    except json.JSONDecodeError:
+        return "Error: ra_tools.py stdout was not valid JSON."
+    except FileNotFoundError:
+        return "Error: /bin/ra_tools.py could not be found."
+    except RuntimeError as e:
+        return f"Error: {e}"
+
+    sorted_ra_lines = sorted(ra_map.keys())
+    output_sections = [f"# Line Number: Symbol for {file_path}", ""]
+    sections = raw_output.split("##")
+
+    for section in sections:
+        lines = section.splitlines()
+        if not lines:
+            continue
+
+        section_name = lines[0].strip()
+        if not section_name or "symbols" in section_name.lower():
+            continue
+
+        output_sections.append(f"## {section_name}")
+
+        for line in lines[1:]:
+            line = line.strip()
+            if not line.startswith("-"):
+                continue
+
+            parts = line.split(")")
+            if len(parts) > 1:
+                before_bracket = parts[0]
+                idx_colon = before_bracket.rfind(":")
+
+                if idx_colon != -1:
+                    idx_backtick = before_bracket.find("`", idx_colon)
+                    if idx_backtick != -1:
+                        line_num = before_bracket[idx_colon + 1 : idx_backtick].strip()
+                    else:
+                        line_num = before_bracket[idx_colon + 1 :].strip()
+                else:
+                    return f"Error: could not parse line number from {before_bracket}"
+
+                definition = ")".join(parts[1:]).strip()
+                line_key = int(line_num)
+                
+                if line_key not in ra_map:
+                    maybe_idx = bisect.bisect_left(sorted_ra_lines, line_key)
+                    if maybe_idx > 0:
+                        line_key = sorted_ra_lines[maybe_idx - 1]
+                ra_info = ra_map.get(line_key)
+
+                if ra_info and ra_info["name"] in definition and ra_info.get("container"):
+                    ra_name = ra_info["name"]
+                    container = ra_info["container"]
     
-    p_ref = subparsers.add_parser("refs", help="Find all references to a symbol", parents=[repo_parent])
-    p_ref.add_argument("symbol")
-    p_ref.add_argument("--include-definition", action="store_true", default=True)
-    p_ref.add_argument("--exclude-tests", action="store_true", default=False)
+                    for kw in ["fn ", "struct ", "enum ", "type ", "const "]:
+                        if f"{kw}{ra_name}" in definition:
+                            definition = definition.replace(f"{kw}{ra_name}", f"{kw}{container}::{ra_name}")
+                            break
+                output_sections.append(f"- {line_num}: {definition}")
 
-    p_fsym = subparsers.add_parser("find-symbols", help="Find structs, classes, functions by type/pattern", parents=[repo_parent])
-    p_fsym.add_argument("--type", dest="symbol_type", default="all",
-                        choices=["struct", "class", "enum", "interface", "function", "method", "trait", "type", "all"])
-    p_fsym.add_argument("--pattern", default=None)
-    p_fsym.add_argument("--file-pattern", default=None)
-    p_fsym.add_argument("--exclude-tests", action="store_true", default=False)
+        output_sections.append("")
 
-    p_dep = subparsers.add_parser("deps", help="Analyze imports and dependents", parents=[repo_parent])
-    p_dep.add_argument("path")
-    p_dep.add_argument("--direction", default="both", choices=["imports", "imported_by", "both"])
+    return "\n".join(output_sections).strip()
 
-    p_wss = subparsers.add_parser("workspace-search", help="Fuzzy search symbols across workspace")
-    p_wss.add_argument("query")
-    p_wss.add_argument("--kind", default="all",
-                       choices=["function", "class", "struct", "interface", "enum", "variable", "all"])
-    p_wss.add_argument("--limit", type=int, default=20)
+def filter_chunks_by_files(raw_chunks_output: str, files: list[str]) -> str:
+    """Filters search-chunks output to only include chunks whose header contains one of the given file paths."""
+    sections = raw_chunks_output.split("---")
+    matched_chunks = []
 
-    p_usg = subparsers.add_parser("usages", help="Cross-file symbol usage with imports", parents=[repo_parent])
-    p_usg.add_argument("symbol")
-    p_usg.add_argument("--no-imports", action="store_true", default=False)
-    p_usg.add_argument("--exclude-tests", action="store_true", default=False)
+    for section in sections:
+        chunk_text = section.strip()
+        if not chunk_text or "Chunk" not in chunk_text:
+            continue
+        header = chunk_text.split("```")[0]
+        if any(f in header for f in files):
+            matched_chunks.append(f"---\n\n{chunk_text}\n\n---")
 
-    p_exp = subparsers.add_parser("exports", help="Get exported symbols from a file/module", parents=[repo_parent])
-    p_exp.add_argument("path")
+    if matched_chunks:
+        return "\n\n".join(matched_chunks)
 
-    # ── Call graph analysis ───────────────────────────────────────────────────
+    return f"Error: No chunks found matching files {files}."
 
-    p_cg = subparsers.add_parser("call-graph", help="Get call graph for repository/function", parents=[repo_parent])
-    p_cg.add_argument("function", nargs="?", default=None)
-    p_cg.add_argument("--depth", type=int, default=3)
-    p_cg.add_argument("--exclude-tests", action="store_true", default=False)
+def get_chunks_by_lines(raw_chunks_output: str, target_lines: list[int]) -> str:
+    """Splits Narsil chunks by '---' and returns matching chunk blocks."""
+    sorted_lines = sorted(list(set(target_lines)))
+    if not sorted_lines:
+        return "Error: No line numbers provided."
 
-    p_callers = subparsers.add_parser("callers", help="Find functions that call a function", parents=[repo_parent])
-    p_callers.add_argument("function")
-    p_callers.add_argument("--transitive", action="store_true", default=False)
-    p_callers.add_argument("--max-depth", type=int, default=5)
-    p_callers.add_argument("--exclude-tests", action="store_true", default=False)
+    sections = raw_chunks_output.split("---")
+    matched_chunks = []
 
-    p_callees = subparsers.add_parser("callees", help="Find functions called by a function", parents=[repo_parent])
-    p_callees.add_argument("function")
-    p_callees.add_argument("--transitive", action="store_true", default=False)
-    p_callees.add_argument("--max-depth", type=int, default=5)
-    p_callees.add_argument("--exclude-tests", action="store_true", default=False)
+    for section in sections:
+        chunk_text = section.strip()
+        if not chunk_text or "Chunk" not in chunk_text:
+            continue
 
-    p_cp = subparsers.add_parser("call-path", help="Find path between two functions", parents=[repo_parent])
-    p_cp.add_argument("from_fn", metavar="from")
-    p_cp.add_argument("to_fn", metavar="to")
+        start_line, end_line = None, None
 
-    # ── Flow analysis ─────────────────────────────────────────────────────────
+        for line in chunk_text.splitlines():
+            line_str = line.strip()
+            if "Lines" in line_str:
+                cleaned_line = line_str.replace("**", "")
+                parts = cleaned_line.split(":")
+                if len(parts) >= 2:
+                    range_parts = parts[1].strip().split("-")
+                    if len(range_parts) == 2:
+                        try:
+                            start_line = int(range_parts[0].strip())
+                            end_line = int(range_parts[1].strip())
+                            break
+                        except ValueError:
+                            pass
 
-    p_cf = subparsers.add_parser("control-flow", help="Analyze basic blocks, branches, loops", parents=[repo_parent])
-    p_cf.add_argument("path")
-    p_cf.add_argument("function")
+        if start_line is not None and end_line is not None:
+            if any(start_line <= t_line <= end_line for t_line in sorted_lines):
+                matched_chunks.append(f"---\n\n{chunk_text}\n\n---")
 
-    p_df = subparsers.add_parser("data-flow", help="Trace variable definitions and uses", parents=[repo_parent])
-    p_df.add_argument("path")
-    p_df.add_argument("function")
+    if matched_chunks:
+        return "\n\n".join(matched_chunks)
 
-    # ── AST-aware chunking ────────────────────────────────────────────────────
+    return f"Error: None of the lines {sorted_lines} fall within any indexed chunk boundaries."
 
-    p_chunks = subparsers.add_parser("chunks", help="Get AST-aware chunks for a file", parents=[repo_parent])
-    p_chunks.add_argument("path")
-    p_chunks.add_argument("--no-imports", action="store_true", default=False)
 
-    p_cstats = subparsers.add_parser("chunk-stats", help="Statistics about code chunks", parents=[repo_parent])
+# ── Typer CLI Command Map Implementation ───────────────────────────────────
 
-    subparsers.add_parser("embedding-stats", help="Embedding index statistics")
-
-    # ── Code search ───────────────────────────────────────────────────────────
-
-    p_sc = subparsers.add_parser("search", help="Keyword search with relevance ranking", parents=[repo_parent])
-    p_sc.add_argument("query")
-    p_sc.add_argument("--file-pattern", default=None)
-    p_sc.add_argument("--max-results", type=int, default=10)
-    p_sc.add_argument("--exclude-tests", action="store_true", default=False)
-
-    p_sem = subparsers.add_parser("semantic", help="BM25-ranked semantic search", parents=[repo_parent])
-    p_sem.add_argument("query")
-    p_sem.add_argument("--doc-type", default=None,
-                       choices=["file", "function", "class", "struct", "method"])
-    p_sem.add_argument("--max-results", type=int, default=10)
-    p_sem.add_argument("--exclude-tests", action="store_true", default=False)
-
-    p_hyb = subparsers.add_parser("hybrid", help="Combined BM25 + TF-IDF search with rank fusion", parents=[repo_parent])
-    p_hyb.add_argument("query")
-    p_hyb.add_argument("--max-results", type=int, default=10)
-    p_hyb.add_argument("--mode", default="hybrid", choices=["hybrid", "bm25", "tfidf"])
-    p_hyb.add_argument("--exclude-tests", action="store_true", default=False)
-
-    p_sch = subparsers.add_parser("search-chunks", help="Search over AST-aware code chunks", parents=[repo_parent])
-    p_sch.add_argument("query")
-    p_sch.add_argument("--chunk-type", default=None,
-                       choices=["function", "method", "class", "trait", "module", "all"])
-    p_sch.add_argument("--max-results", type=int, default=10)
-    p_sch.add_argument("--exclude-tests", action="store_true", default=False)
-
-    p_fsc = subparsers.add_parser("similar-code", help="Find code similar to a snippet (TF-IDF)", parents=[repo_parent])
-    p_fsc.add_argument("query")
-    p_fsc.add_argument("--max-results", type=int, default=10)
-    p_fsc.add_argument("--exclude-tests", action="store_true", default=False)
-
-    p_fss = subparsers.add_parser("similar-symbol", help="Find code similar to a symbol", parents=[repo_parent])
-    p_fss.add_argument("symbol")
-    p_fss.add_argument("--max-results", type=int, default=10)
-
-    # ── Repository management ─────────────────────────────────────────────────
-
-    p_ps = subparsers.add_parser("structure", help="Get directory tree with file icons and sizes", parents=[repo_parent])
-    p_ps.add_argument("--max-depth", type=int, default=4)
-
-    # ─────────────────────────────────────────────────────────────────────────
-
-    args = parser.parse_args()
-
-    if args.command == "symbol":
+@app.command("symbol", help="Get symbol source with surrounding context")
+def cmd_symbol(
+    symbols: Annotated[List[str], typer.Argument(help="One or more named symbols to view")],
+    context_lines: Annotated[int, typer.Option("--context-lines", help="Number of context lines")] = 0,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    parts = []
+    for symbol in symbols:
         res = send_request("get_symbol_definition", {
-            "repo": args.repo, "symbol": args.symbol, "context_lines": args.context_lines,
+            "repo": repo, "symbol": symbol, "context_lines": context_lines,
         })
-    elif args.command == "excerpt":
-        lines = []
-        for x in args.lines:
-            lines.append(x)
-        res = send_request("get_excerpt", {
-            "repo": args.repo, "path": args.path, "lines": lines, "expand_to_scope": True,
-        })
-    elif args.command == "refs":
-        res = send_request("find_references", {
-            "repo": args.repo, "symbol": args.symbol,
-            "include_definition": args.include_definition,
-            "exclude_tests": args.exclude_tests,
-        })
-    elif args.command == "find-symbols":
-        params = {"repo": args.repo, "symbol_type": args.symbol_type, "exclude_tests": args.exclude_tests}
-        if args.pattern: params["pattern"] = args.pattern
-        if args.file_pattern: params["file_pattern"] = args.file_pattern
-        res = send_request("find_symbols", params)
-    elif args.command == "deps":
-        res = send_request("get_dependencies", {
-            "repo": args.repo, "path": args.path, "direction": args.direction,
-        })
-    elif args.command == "workspace-search":
-        res = send_request("workspace_symbol_search", {
-            "query": args.query, "kind": args.kind, "limit": args.limit,
-        })
-    elif args.command == "usages":
-        res = send_request("find_symbol_usages", {
-            "repo": args.repo, "symbol": args.symbol,
-            "include_imports": not args.no_imports,
-            "exclude_tests": args.exclude_tests,
-        })
-    elif args.command == "exports":
-        res = send_request("get_export_map", {"repo": args.repo, "path": args.path})
-    elif args.command == "call-graph":
-        params = {"repo": args.repo, "depth": args.depth, "exclude_tests": args.exclude_tests}
-        if args.function: params["function"] = args.function
-        res = send_request("get_call_graph", params)
-    elif args.command == "callers":
-        res = send_request("get_callers", {
-            "repo": args.repo, "function": args.function,
-            "transitive": args.transitive, "max_depth": args.max_depth,
-            "exclude_tests": args.exclude_tests,
-        })
-    elif args.command == "callees":
-        res = send_request("get_callees", {
-            "repo": args.repo, "function": args.function,
-            "transitive": args.transitive, "max_depth": args.max_depth,
-            "exclude_tests": args.exclude_tests,
-        })
-    elif args.command == "call-path":
-        res = send_request("find_call_path", {
-            "repo": args.repo, "from": args.from_fn, "to": args.to_fn,
-        })
-    elif args.command == "control-flow":
-        res = send_request("get_control_flow", {
-            "repo": args.repo, "path": args.path, "function": args.function,
-        })
-    elif args.command == "data-flow":
-        res = send_request("get_data_flow", {
-            "repo": args.repo, "path": args.path, "function": args.function,
-        })
-    elif args.command == "chunks":
-        res = send_request("get_chunks", {
-            "repo": args.repo, "path": args.path, "include_imports": not args.no_imports,
-        })
-    elif args.command == "chunk-stats":
-        res = send_request("get_chunk_stats", {"repo": args.repo})
-    elif args.command == "embedding-stats":
-        res = send_request("get_embedding_stats", {})
-    elif args.command == "search":
-        params = {"query": args.query, "max_results": args.max_results, "exclude_tests": args.exclude_tests,
-                  "repo": args.repo}
-        if args.file_pattern: params["file_pattern"] = args.file_pattern
-        res = send_request("search_code", params)
-    elif args.command == "semantic":
-        params = {"query": args.query, "max_results": args.max_results, "exclude_tests": args.exclude_tests,
-                  "repo": args.repo}
-        if args.doc_type: params["doc_type"] = args.doc_type
-        res = send_request("semantic_search", params)
-    elif args.command == "hybrid":
-        params = {"query": args.query, "max_results": args.max_results,
-                  "mode": args.mode, "exclude_tests": args.exclude_tests, "repo": args.repo}
-        res = send_request("hybrid_search", params)
-    elif args.command == "search-chunks":
-        params = {"query": args.query, "max_results": args.max_results, "exclude_tests": args.exclude_tests,
-                  "repo": args.repo}
-        if args.chunk_type: params["chunk_type"] = args.chunk_type
-        res = send_request("search_chunks", params)
-    elif args.command == "similar-code":
-        params = {"query": args.query, "max_results": args.max_results, "exclude_tests": args.exclude_tests,
-                  "repo": args.repo}
-        res = send_request("find_similar_code", params)
-    elif args.command == "similar-symbol":
-        res = send_request("find_similar_to_symbol", {
-            "repo": args.repo, "symbol": args.symbol, "max_results": args.max_results,
-        })
-    elif args.command == "structure":
-        res = send_request("get_project_structure", {"repo": args.repo, "max_depth": args.max_depth})
+        parts.append(f"# Symbol  {symbol}\n{res}")
+    print("\n---\n\n".join(parts))
 
+@app.command("excerpt", help="Read a line, auto-expanded to its full scope")
+def cmd_excerpt(
+    path: Annotated[str, typer.Argument(help="Target file path")],
+    lines: Annotated[List[int], typer.Argument(help="One or more line numbers to extract around")],
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_excerpt", {
+        "repo": repo, "path": path, "lines": list(lines), "expand_to_scope": True,
+    })
     print(res)
 
+@app.command("refs", help="Find all references to a symbol")
+def cmd_refs(
+    symbol: Annotated[str, typer.Argument(help="Target symbol")],
+    include_definition: Annotated[bool, typer.Option("--include-definition/--no-include-definition")] = True,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests/--include-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("find_references", {
+        "repo": repo, "symbol": symbol,
+        "include_definition": include_definition,
+        "exclude_tests": exclude_tests,
+    })
+    print(res)
+
+@app.command("find-symbols", help="Find structs, classes, functions by type/pattern")
+def cmd_find_symbols(
+    symbol_type: Annotated[SymbolType, typer.Option("--type", help="Filter by symbol structure type")] = SymbolType.all,
+    pattern: Annotated[Optional[str], typer.Option("--pattern", help="Fuzzy name pattern matching")] = None,
+    file_pattern: Annotated[Optional[str], typer.Option("--file-pattern", help="Filter by file architecture patterns")] = None,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests/--include-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    params = {"repo": repo, "symbol_type": symbol_type.value, "exclude_tests": exclude_tests}
+    if pattern: params["pattern"] = pattern
+    if file_pattern: params["file_pattern"] = file_pattern
+    res = send_request("find_symbols", params)
+    print(res)
+
+@app.command("deps", help="Analyze imports and dependents")
+def cmd_deps(
+    path: Annotated[str, typer.Argument(help="Target module or file path")],
+    direction: Annotated[Direction, typer.Option("--direction", help="The search path orientation orientation")] = Direction.both,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_dependencies", {
+        "repo": repo, "path": path, "direction": direction.value,
+    })
+    print(res)
+
+@app.command("workspace-search", help="Fuzzy search symbols across workspace")
+def cmd_workspace_search(
+    query: Annotated[str, typer.Argument(help="Search pattern string")],
+    kind: Annotated[Kind, typer.Option("--kind", help="Kind classification filters")] = Kind.all,
+    limit: Annotated[int, typer.Option("--limit", help="Cap total results returned")] = 20,
+):
+    res = send_request("workspace_symbol_search", {
+        "query": query, "kind": kind.value, "limit": limit,
+    })
+    print(res)
+
+@app.command("usages", help="Cross-file symbol usage with imports")
+def cmd_usages(
+    symbol: Annotated[str, typer.Argument(help="Symbol name query")],
+    no_imports: Annotated[bool, typer.Option("--no-imports")] = False,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("find_symbol_usages", {
+        "repo": repo, "symbol": symbol,
+        "include_imports": not no_imports,
+        "exclude_tests": exclude_tests,
+    })
+    print(res)
+
+@app.command("exports", help="Get exported symbols from a file/module")
+def cmd_exports(
+    path: Annotated[str, typer.Argument(help="Module or file target path")],
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_export_map", {"repo": repo, "path": path})
+    print(res)
+
+@app.command("call-graph", help="Get call graph for repository/function")
+def cmd_call_graph(
+    function: Annotated[Optional[str], typer.Argument(help="Target entry function name")] = None,
+    depth: Annotated[int, typer.Option("--depth", help="Maximum lookup hierarchy depth boundaries")] = 3,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    params = {"repo": repo, "depth": depth, "exclude_tests": exclude_tests}
+    if function: params["function"] = function
+    res = send_request("get_call_graph", params)
+    print(res)
+
+@app.command("callers", help="Find functions that call a function")
+def cmd_callers(
+    function: Annotated[str, typer.Argument(help="Target function leaf node")],
+    transitive: Annotated[bool, typer.Option("--transitive")] = False,
+    max_depth: Annotated[int, typer.Option("--max-depth")] = 5,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_callers", {
+        "repo": repo, "function": function,
+        "transitive": transitive, "max_depth": max_depth,
+        "exclude_tests": exclude_tests,
+    })
+    print(res)
+
+@app.command("callees", help="Find functions called by a function")
+def cmd_callees(
+    function: Annotated[str, typer.Argument(help="Root function identifier")],
+    transitive: Annotated[bool, typer.Option("--transitive")] = False,
+    max_depth: Annotated[int, typer.Option("--max-depth")] = 5,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_callees", {
+        "repo": repo, "function": function,
+        "transitive": transitive, "max_depth": max_depth,
+        "exclude_tests": exclude_tests,
+    })
+    print(res)
+
+@app.command("call-path", help="Find path between two functions")
+def cmd_call_path(
+    from_fn: Annotated[str, typer.Argument(help="Starting trace node path identifier")],
+    to_fn: Annotated[str, typer.Argument(help="Destination search node execution target")],
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("find_call_path", {
+        "repo": repo, "from": from_fn, "to": to_fn,
+    })
+    print(res)
+
+@app.command("control-flow", help="Analyze basic blocks, branches, loops")
+def cmd_control_flow(
+    path: Annotated[str, typer.Argument(help="Module file target path location")],
+    function: Annotated[str, typer.Argument(help="Target logic wrapper scope")],
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_control_flow", {
+        "repo": repo, "path": path, "function": function,
+    })
+    print(res)
+
+@app.command("data-flow", help="Trace variable definitions and uses")
+def cmd_data_flow(
+    path: Annotated[str, typer.Argument(help="Target source code execution file path")],
+    function: Annotated[str, typer.Argument(help="Target function block identifier definition")],
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_data_flow", {
+        "repo": repo, "path": path, "function": function,
+    })
+    print(res)
+
+@app.command("chunks", help="Get AST-aware chunks for a file")
+def cmd_chunks(
+    path: Annotated[str, typer.Argument(help="File structure lookup target path")],
+    no_imports: Annotated[bool, typer.Option("--no-imports")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_chunks", {
+        "repo": repo, "path": path, "include_imports": not no_imports,
+    })
+    print(res)
+
+@app.command("chunk-stats", help="Statistics about code chunks")
+def cmd_chunk_stats(
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_chunk_stats", {"repo": repo})
+    print(res)
+
+@app.command("embedding-stats", help="Embedding index statistics")
+def cmd_embedding_stats():
+    res = send_request("get_embedding_stats", {})
+    print(res)
+
+@app.command("search", help="Keyword search with relevance ranking")
+def cmd_search(
+    query: Annotated[str, typer.Argument(help="Lexical match query payload string")],
+    file_pattern: Annotated[Optional[str], typer.Option("--file-pattern")] = None,
+    max_results: Annotated[int, typer.Option("--max-results")] = 10,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    params = {"query": query, "max_results": max_results, "exclude_tests": exclude_tests, "repo": repo}
+    if file_pattern: params["file_pattern"] = file_pattern
+    res = send_request("search_code", params)
+    print(res)
+
+@app.command("semantic", help="BM25-ranked semantic search")
+def cmd_semantic(
+    query: Annotated[str, typer.Argument(help="Natural syntax context description string query")],
+    doc_type: Annotated[Optional[DocType], typer.Option("--doc-type", help="Structural module filter context parameters")] = None,
+    max_results: Annotated[int, typer.Option("--max-results")] = 10,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    params = {"query": query, "max_results": max_results, "exclude_tests": exclude_tests, "repo": repo}
+    if doc_type: params["doc_type"] = doc_type.value
+    res = send_request("semantic_search", params)
+    print(res)
+
+@app.command("hybrid", help="Combined BM25 + TF-IDF search with rank fusion")
+def cmd_hybrid(
+    query: Annotated[str, typer.Argument(help="Multi-model index engine target match data query string")],
+    max_results: Annotated[int, typer.Option("--max-results")] = 10,
+    mode: Annotated[HybridMode, typer.Option("--mode")] = HybridMode.hybrid,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    params = {"query": query, "max_results": max_results, "mode": mode.value, "exclude_tests": exclude_tests, "repo": repo}
+    res = send_request("hybrid_search", params)
+    print(res)
+
+@app.command("search-chunks", help="Search over AST-aware code chunks")
+def cmd_search_chunks(
+    query: Annotated[str, typer.Argument(help="Strict logical code search parameter queries")],
+    chunk_type: Annotated[Optional[ChunkType], typer.Option("--chunk-type")] = None,
+    max_results: Annotated[int, typer.Option("--max-results")] = 10,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    files: Annotated[Optional[List[str]], typer.Option("--file", help="Filter results to chunks from these files")] = None,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    params = {"query": query, "max_results": max_results, "exclude_tests": exclude_tests, "repo": repo}
+    if chunk_type: params["chunk_type"] = chunk_type.value
+    res = send_request("search_chunks", params)
+    if files:
+        res = filter_chunks_by_files(res, list(files))
+    print(res)
+
+@app.command("similar-code", help="Find code similar to a snippet (TF-IDF)")
+def cmd_similar_code(
+    query: Annotated[str, typer.Argument(help="Raw sample template block validation text context source string")],
+    max_results: Annotated[int, typer.Option("--max-results")] = 10,
+    exclude_tests: Annotated[bool, typer.Option("--exclude-tests")] = False,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    params = {"query": query, "max_results": max_results, "exclude_tests": exclude_tests, "repo": repo}
+    res = send_request("find_similar_code", params)
+    print(res)
+
+@app.command("similar-symbol", help="Find code similar to a symbol")
+def cmd_similar_symbol(
+    symbol: Annotated[str, typer.Argument(help="Existing codebase module search reference label key")],
+    max_results: Annotated[int, typer.Option("--max-results")] = 10,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("find_similar_to_symbol", {
+        "repo": repo, "symbol": symbol, "max_results": max_results,
+    })
+    print(res)
+
+@app.command("structure", help="Get directory tree with file icons and sizes")
+def cmd_structure(
+    max_depth: Annotated[int, typer.Option("--max-depth")] = 4,
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    res = send_request("get_project_structure", {"repo": repo, "max_depth": max_depth})
+    print(res)
+
+@app.command("file-skeleton", help="Get the symbols for a file")
+def cmd_file_skeleton(
+    file: Annotated[str, typer.Option("--file", help="Path to the source file", show_default=False)],
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    params = {"repo": repo, "symbol_type": "all", "exclude_tests": False, "file_pattern": file}
+    raw_output = send_request("find_symbols", params)
+    res = get_file_symbols(file, raw_output)
+    print(res)
+
+@app.command("get-chunks-by-lines", help="For each line: get the chunk that contains the line")
+def cmd_get_chunks_by_lines(
+    file: Annotated[str, typer.Option("--file", help="Path to the source file", show_default=False)],
+    lines: Annotated[List[int], typer.Option("--line", help="Line numbers to retrieve chunks for", show_default=False)],
+    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
+):
+    raw_output = send_request("get_chunks", {
+        "repo": repo, "path": file, "include_imports": True,
+    })
+    res = get_chunks_by_lines(raw_output, list(lines))
+    print(res)
+
+
 if __name__ == "__main__":
-    main()
+    app()

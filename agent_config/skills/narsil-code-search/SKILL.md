@@ -1,19 +1,32 @@
 ---
-name: narsil_code_search
+name: narsil-code-search
 description: "Standard Operating Procedure for global search, semantic concept mapping, and cross-file dependencies."
 ---
 
 # Code Discovery & Search SOP
 
-Use these tools when exploring an unfamiliar codebase, looking for architectural patterns, or locating where a feature concept is implemented. 
+Use this procedure when exploring an unfamiliar codebase, locating where a feature is implemented, or auditing cross-file symbol usage.
 
-## 1. Intent-Based Searching (Semantic Over Keyword)
-* **Natural Language Queries:** If you are looking for a conceptual feature but don't know the exact variable or function names, use `search_semantic`. Use query descriptions like `"handling WebRTC connection fallback"` or `"parsing protocol frames"`.
-* **Code Intent Matching:** Use `search_chunks` to search directly over logical AST-aware boundaries. This ensures results match the functional context of structural components.
-* **The Hybrid Fallback:** For general queries where you want a balance of exact string tokens and concept matching, default to `search_hybrid`.
+## 1. Choosing the Right Search Tool
 
-## 2. Impact Analysis & Workspace Context
-Before modifying an existing file or module, you must analyze its immediate Blast Radius:
-* **Inbound/Outbound Deps:** Use `analyze_dependencies` with `direction="both"` to see what a file relies on and what files rely on it.
-* **Public Interface Check:** Use `get_exports` on a target file to instantly audit its public API surface before making changes.
-* **Duplication Guard:** If you are about to write a new helper function or utility, use `find_similar_code` with a rough snippet of your intent. Check if a clean abstraction already exists in the repo to prevent codebase fragmentation.
+| Query type | Tool | Example |
+|---|---|---|
+| Natural language / behavioural intent | **`search-semantic`** | `"deserialize JSON into user struct"` |
+| Mixed keyword + concept | **`search-hybrid`** (default) | `"connection pool timeout retry"` |
+| Exact string / token / attribute | **`search-keywords`** | `"#[derive(Serialize)]"` |
+| Scoped to a structural type + need to read bodies | **`search-chunks`** with `chunk-type` | functions that handle auth — returns full code, not just locations |
+| Duplication check before writing new code | **`find-similar-code`** | rough snippet of intended logic |
+| Find parallel implementations of a symbol | **`find-similar-symbol`** | existing symbol name |
+
+**Default to `search-hybrid`** when unsure. Use `search-semantic` when you know the behaviour but not the identifier. Use `search-keywords` only for exact literal matches.
+
+## 2. Cross-File Symbol Navigation
+
+Once a symbol is located via search, follow up with:
+- **`find-references`** — exhaustive list of all call/usage sites (file + line, no result cap)
+- **`search-chunks`** — ranked top-N with full code bodies; use `--file` to scope to files returned by `find-references`
+- **`find-usages`** — same as find-references but includes import sites (use for migration impact)
+- **`analyze-dependencies`** with `direction="both"` — full import graph for a file
+
+## 3. Duplication Guard
+Before writing any new helper or utility, call **`find-similar-code`** with a rough snippet of your intended logic. If a match exists, use `read-symbols` to retrieve it instead of duplicating.
