@@ -130,7 +130,7 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY narsil_client.py /bin/narsil_client.py
 RUN chmod +x /bin/narsil_client.py
 
-RUN uv pip install --system typer typing_extensions
+RUN uv pip install --system typer typing_extensions click
 
 WORKDIR /root
 

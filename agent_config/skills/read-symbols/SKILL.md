@@ -1,9 +1,9 @@
 ---
 name: read-symbols
-description: "Fetch the complete source code of a named symbol by name — no line numbers needed."
+description: "Fetch the complete source code of one or more symbols by name — no line numbers needed."
 ---
 
-Returns the complete, exact source code of a named symbol (function, struct, enum, trait, const, etc.) looked up by name across the repository.
+Returns the complete, exact source code of one or more named symbols (function, struct, enum, trait, const, etc.) looked up by names across the repository.
 
 ## Tool Interface
 ```

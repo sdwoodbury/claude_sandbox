@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import shlex
 import bisect
 import json
 import socket
@@ -9,6 +10,13 @@ from enum import Enum
 from typing import List, Optional
 from typing_extensions import Annotated
 import typer
+import click
+
+# Force Typer to pretend Rich isn't installed
+import typer.core
+import typer.main
+typer.core.HAS_RICH = False
+typer.main.HAS_RICH = False
 
 sys.stdout.reconfigure(encoding="utf-8")
 SOCKET_PATH = "/tmp/narsil_mcp"
@@ -275,7 +283,8 @@ def get_chunks_by_lines(raw_chunks_output: str, target_lines: list[int]) -> str:
 
 # ── Typer CLI Command Map Implementation ───────────────────────────────────
 
-@app.command("symbol", help="Get symbol source with surrounding context")
+@app.command("symbol", help="Get source with surrounding context for symbols")
+@app.command(name="read-symbols", hidden=True)
 def cmd_symbol(
     symbols: Annotated[List[str], typer.Argument(help="One or more named symbols to view")],
     context_lines: Annotated[int, typer.Option("--context-lines", help="Number of context lines")] = 0,
@@ -301,6 +310,7 @@ def cmd_excerpt(
     print(res)
 
 @app.command("refs", help="Find all references to a symbol")
+@app.command(name="find-references", hidden=True) # the agent sometimes gets confused and uses this instead
 def cmd_refs(
     symbol: Annotated[str, typer.Argument(help="Target symbol")],
     include_definition: Annotated[bool, typer.Option("--include-definition/--no-include-definition")] = True,
@@ -554,7 +564,7 @@ def cmd_structure(
     res = send_request("get_project_structure", {"repo": repo, "max_depth": max_depth})
     print(res)
 
-@app.command("file-skeleton", help="Get the symbols for a file")
+@app.command("file-skeleton", help="Get the symbols for files")
 def cmd_file_skeleton(
     file: Annotated[str, typer.Option("--file", help="Path to the source file", show_default=False)],
     repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
@@ -565,6 +575,7 @@ def cmd_file_skeleton(
     print(res)
 
 @app.command("get-chunks-by-lines", help="For each line: get the chunk that contains the line")
+@app.command(name="read-excerpts", hidden=True)
 def cmd_get_chunks_by_lines(
     file: Annotated[str, typer.Option("--file", help="Path to the source file", show_default=False)],
     lines: Annotated[List[int], typer.Option("--line", help="Line numbers to retrieve chunks for", show_default=False)],
@@ -576,6 +587,63 @@ def cmd_get_chunks_by_lines(
     res = get_chunks_by_lines(raw_output, list(lines))
     print(res)
 
+@app.command("batch")
+def cmd_batch():
+    """
+    Execute multiple subcommands sequentially from standard input (stdin).
+
+    INPUT FORMAT:
+    - Provide one complete subcommand per line.
+    - Omit the main '/bin/narsil_client.py' prefix on each line.
+    - Use standard double quotes for arguments containing spaces.
+    - Blank lines and lines starting with '#' are ignored.
+
+    EXAMPLE:
+        cat << 'EOF' | /bin/narsil_client.py batch
+        symbol --name "Schedule" --file "search.rs"
+        refs --name "HAWK_MIN_DIST_ROTATIONS"
+        excerpt --file "intra_batch.rs" --line 42
+        EOF
+    """
+    if sys.stdin.isatty():
+        typer.echo("Error: 'batch' expects commands via stdin pipe. See --help.", err=True)
+        raise typer.Exit(code=1)
+
+    click_app = typer.main.get_command(app)
+    lines = sys.stdin.read().splitlines()
+    for line in lines:
+        cleaned = line.strip()
+        # Skip empty lines and comments
+        if not cleaned or cleaned.startswith("#"):
+            continue
+            
+        try:
+            args = shlex.split(cleaned)
+            
+            # Print a clear visual delimiter so the Agent can easily parse where 
+            # one command ends and the next begins in the console output.
+            typer.secho(f"\n🚀 [Batch] Executing: /bin/narsil_client.py {cleaned}", fg=typer.colors.CYAN, bold=True)
+            typer.echo("-" * 40)
+            
+            # 3. Invoke the subcommand in-memory.
+            # standalone_mode=False prevents Click from calling sys.exit() on completion/error
+            click_app.main(args=args, standalone_mode=False)
+            
+        except click.ClickException as e:
+            # Handles CLI syntax issues (e.g., agent passed a bad flag like --no-such-arg)
+            typer.secho(f"❌ CLI Error: {e}", fg=typer.colors.RED, err=True)
+            
+        except click.Exit as e:
+            # Handles explicit exits inside your subcommands (like raise typer.Exit())
+            if e.exit_code != 0:
+                typer.secho(f"❌ Command exited with code {e.exit_code}", fg=typer.colors.RED, err=True)
+                
+        except Exception as e:
+            # Safety net: Handles runtime crashes (e.g., KeyError, FileNotFoundError) 
+            # inside your actual command logic, keeping the loop alive for subsequent commands.
+            typer.secho(f"💥 Runtime Crash: {e}", fg=typer.colors.RED, err=True)
+
+        typer.echo("-" * 40)
 
 if __name__ == "__main__":
     app()
