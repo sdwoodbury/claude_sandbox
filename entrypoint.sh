@@ -3,7 +3,6 @@
 
 # install plugins
 # claude mcp add --scope project --transport stdio context-mode -- context-mode
-claude mcp add --scope project --transport stdio patch-file -- patch-file-mcp --allowed-dir /
 
 if [ "${ENABLE_KA:-false}" = "true" ]; then
     echo "🔓 Firewall disabled (KA mode - unrestricted AWS/kubectl access)"

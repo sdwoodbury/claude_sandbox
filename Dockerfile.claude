@@ -53,14 +53,17 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# not used
 # install context-mode globally
-RUN npm install -g context-mode
+# RUN npm install -g context-mode
 
 # this installs uv and adds it to the path
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
+
+# not used.
 # install patch-file-mcp
-RUN uv tool install patch-file-mcp
+# RUN uv tool install patch-file-mcp
 
 WORKDIR /root
 
@@ -101,8 +104,8 @@ RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/environment && \
     echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /root/.zshrc
 
 # Convenience alias for unattended claude
-RUN echo "alias run='claude --dangerously-skip-permissions'" >> /root/.bashrc && \
-    echo "alias run='claude --dangerously-skip-permissions'" >> /root/.zshrc
+RUN echo "alias run='claude --model opus --dangerously-skip-permissions'" >> /root/.bashrc && \
+    echo "alias run='claude --model opus --dangerously-skip-permissions'" >> /root/.zshrc
 
 RUN echo "alias run2='claude --agent opus-agent --dangerously-skip-permissions'" >> /root/.bashrc && \
     echo "alias run2='claude --agent opus-agent --dangerously-skip-permissions'" >> /root/.zshrc
@@ -129,6 +132,8 @@ RUN chmod +x /bin/ra_tool.py
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY narsil_client.py /bin/narsil_client.py
 RUN chmod +x /bin/narsil_client.py
+COPY patch_file.py /bin/patch_file.py
+RUN chmod +x /bin/patch_file.py
 
 RUN uv pip install --system typer typing_extensions click
 

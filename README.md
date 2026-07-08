@@ -253,4 +253,10 @@ The firewall locks down the specific IP addresses for allowed domains **only at 
 * **If IPs change mid-session:** Some services rotate their IP addresses dynamically. If a service suddenly becomes unreachable, running a quick restart cycle via `claude_up` will pick up the new addresses.
 
 ### Acknowledgments
-This project uses [ra-tool.py](https://github.com/username/ra-tool) for interacting with `lspmux`. It has been modified to communicate with `lspmux` via a UNIX socket rather than stdio.
+Regarding code that I modified.
+
+This project uses [ra-tool.py](https://github.com/orsenkucher/ra-tool) for interacting with `lspmux`. It has been modified to communicate with `lspmux` via a UNIX socket rather than stdio.
+
+It also uses [patch-file-mcp](https://github.com/wallneradam/patch-file-mcp) which was turned into a python script.
+
+And of course [narsil-mcp](https://github.com/postrv/narsil-mcp).
