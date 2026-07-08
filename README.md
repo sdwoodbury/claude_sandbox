@@ -7,12 +7,29 @@ This repository contains skills that allow Claude to effeciently work on large R
 
 **GLIBC Compatibility:** The **Ubuntu version** defined in your `Dockerfile.claude` should match the Ubuntu version of your host machine. This guarantees that your host and container share a matching `glibc` package version, which is required for the rust compilation outputs to be compatible.
 
-Note that the version of Claude is specified in the Dockerfile. Update this line to use a different version of Claude:
-```
-RUN curl -fsSL https://claude.ai/install.sh | bash -s <your desired version>
-```
+Note that the version of Claude is pinned in the Dockerfile.
 
 ---
+
+## Quick Start
+
+Once `narsil-mcp` and `lsp-mux` are set up and the `claude` Docker image is built, usage is very simple.
+
+1. Launch the environment:
+Run the following command to start the container. This will bind-mount your current directory and restrict the container's access to just that folder:
+
+```
+claude_up 
+```
+
+2. Run the agent:
+Once inside the container's terminal, launch claude one of the following ways:
+- `claude` - the normal way
+- `run2` - alias to launch the opus agent, equipped with the special skills
+- `run3` - alias to launch the sonnet agent, equipped with the special skills
+- `agent <agent name>` - runs `claude --agent <agent name>`
+
+3. Use Claude as normal.
 
 ## Getting Started & Custom Agents
 
