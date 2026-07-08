@@ -7,7 +7,7 @@ Runs both BM25 and TF-IDF search and fuses the ranked results. Balances exact to
 
 ## Tool Interface
 ```
-/bin/narsil_client.py hybrid <query: str> \
+/bin/narsil_client.py search-hybrid <query: str> \
     [--mode <hybrid|bm25|tfidf = "hybrid">] \
     [--max-results <n: int = 10>] \
     [--exclude-tests]

@@ -7,7 +7,7 @@ Returns the set of functions that `function_name` calls directly (or transitivel
 
 ## Tool Interface
 ```
-/bin/narsil_client.py callees <function_name: str> \
+/bin/narsil_client.py find-callees <function_name: str> \
     [--max-depth <n: int = 1>] \
     [--transitive] \
     [--exclude-tests]

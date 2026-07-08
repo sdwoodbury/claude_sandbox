@@ -1,5 +1,5 @@
 ---
-name: read-excerpts
+name: get-chunks-by-lines
 description: "Retrieve the full AST chunk(s) that contain given line numbers from a file."
 ---
 

@@ -7,7 +7,7 @@ Returns a visual directory tree of the workspace up to `max_depth` levels. Use t
 
 ## Tool Interface
 ```
-/bin/narsil_client.py structure [--max-depth <n: int = 3>]
+/bin/narsil_client.py view-repository-structure [--max-depth <n: int = 3>]
 ```
 
 ## Usage

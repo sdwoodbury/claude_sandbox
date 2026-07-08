@@ -1,5 +1,5 @@
 ---
-name: read-symbols
+name: view-symbols
 description: "Fetch the complete source code of one or more symbols by name — no line numbers needed."
 ---
 
@@ -7,7 +7,7 @@ Returns the complete, exact source code of one or more named symbols (function, 
 
 ## Tool Interface
 ```
-/bin/narsil_client.py symbol <symbol_name: str> [<symbol_name: str> ...] \
+/bin/narsil_client.py view-symbols <symbol_name: str> [<symbol_name: str> ...] \
     [--context-lines <n: int = 0>]
 ```
 

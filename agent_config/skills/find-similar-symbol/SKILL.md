@@ -7,7 +7,7 @@ Given a known symbol name, returns other codebase chunks that are semantically s
 
 ## Tool Interface
 ```
-/bin/narsil_client.py similar-symbol <symbol_name: str> \
+/bin/narsil_client.py find-similar-symbol <symbol_name: str> \
     [--max-results <n: int = 5>]
 ```
 

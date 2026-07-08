@@ -7,7 +7,7 @@ Returns intra-function data-flow information: where each variable is defined, mu
 
 ## Tool Interface
 ```
-/bin/narsil_client.py data-flow <path: str> <function_name: str>
+/bin/narsil_client.py analyze-data-flow <path: str> <function_name: str>
 ```
 
 ## Usage

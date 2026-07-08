@@ -7,7 +7,7 @@ Finds the set of functions that directly (or transitively) call `function_name`.
 
 ## Tool Interface
 ```
-/bin/narsil_client.py callers <function_name: str> \
+/bin/narsil_client.py find-callers <function_name: str> \
     [--max-depth <n: int = 1>] \
     [--transitive] \
     [--exclude-tests]

@@ -7,7 +7,7 @@ Returns the shortest call chain linking `from_function` to `to_function` across 
 
 ## Tool Interface
 ```
-/bin/narsil_client.py call-path <from_fn: str> <to_fn: str>
+/bin/narsil_client.py get-call-path <from_fn: str> <to_fn: str>
 ```
 
 ## Usage

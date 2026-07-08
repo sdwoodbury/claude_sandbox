@@ -25,8 +25,8 @@ Use this procedure when exploring an unfamiliar codebase, locating where a featu
 Once a symbol is located via search, follow up with:
 - **`find-references`** — exhaustive list of all call/usage sites (file + line, no result cap)
 - **`search-chunks`** — ranked top-N with full code bodies; use `--file` to scope to files returned by `find-references`
-- **`find-usages`** — same as find-references but includes import sites (use for migration impact)
+- **`catalog-usages`** — same as find-references but includes import sites (use for migration impact)
 - **`analyze-dependencies`** with `direction="both"` — full import graph for a file
 
 ## 3. Duplication Guard
-Before writing any new helper or utility, call **`find-similar-code`** with a rough snippet of your intended logic. If a match exists, use `read-symbols` to retrieve it instead of duplicating.
+Before writing any new helper or utility, call **`find-similar-code`** with a rough snippet of your intended logic. If a match exists, use `view-symbols` to retrieve it instead of duplicating.

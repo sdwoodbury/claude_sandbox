@@ -7,5 +7,5 @@ Returns statistics about the current embedding index (document counts, index siz
 
 ## Tool Interface
 ```
-/bin/narsil_client.py embedding-stats
+/bin/narsil_client.py get-embedding-stats
 ```

@@ -1,5 +1,5 @@
 ---
-name: find-usages
+name: catalog-usages
 description: "Find cross-file symbol usages, optionally including import sites."
 ---
 
@@ -7,10 +7,10 @@ Locates all cross-file usages of a symbol, including import statements unless su
 
 ## Tool Interface
 ```
-/bin/narsil_client.py usages <symbol_name: str> \
+/bin/narsil_client.py catalog-usages <symbol_name: str> \
     [--no-imports] \
     [--exclude-tests]
 ```
 
 ## Difference from find-references
-`find-usages` includes import sites by default; `find-references` focuses on call/usage sites. Use `find-usages` for migration impact analysis, `find-references` for call-site audits.
+`catalog-usages` includes import sites by default; `find-references` focuses on call/usage sites. Use `catalog-usages` for migration impact analysis, `find-references` for call-site audits.

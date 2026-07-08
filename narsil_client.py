@@ -20,12 +20,52 @@ typer.main.HAS_RICH = False
 
 sys.stdout.reconfigure(encoding="utf-8")
 SOCKET_PATH = "/tmp/narsil_mcp"
-
-# Initialize Typer App
-app = typer.Typer(help="Narsil CLI Client", add_completion=False)
-
-# Reusable default repo configuration matching original behavior
+# Reusable default repo configuration with helpful default
 DEFAULT_REPO = os.path.basename(os.getcwd())
+
+
+class AgentFriendlyGroup(typer.core.TyperGroup):
+    def format_commands(self, ctx, formatter):
+        # Gather all registered subcommands that aren't hidden
+        commands = []
+        for subcommand in self.list_commands(ctx):
+            cmd = self.get_command(ctx, subcommand)
+            if cmd is None or cmd.hidden:
+                continue
+            help_text = cmd.get_short_help_str() or ""
+            commands.append((subcommand, help_text))
+
+        # Explicitly map commands to their target functional domains
+        categories = {
+            "Symbol Navigation & Reference Mapping": [
+                "view-symbols", "find-references", "catalog-usages",
+                "find-symbols-by-pattern", "scan-file-skeletons", "get-exports"
+            ],
+            "Flow & Architecture Analysis": [
+                "get-call-graph", "find-callers", "find-callees",
+                "get-call-path", "analyze-control-flow", "analyze-data-flow"
+            ],
+            "AST Code Chunking Operations": [
+                "chunks", "get-chunks-by-lines", "get-chunk-stats"
+            ],
+            "Workspace Search Engines": [
+                "search-keywords", "search-semantic", "search-hybrid",
+                "search-chunks", "workspace-search", "find-similar-code", "find-similar-symbol"
+            ],
+            "Repository & Client Utilities": [
+                "view-repository-structure", "get-embedding-stats", "batch-commands"
+            ]
+        }
+
+        # Render each section cleanly
+        for section_title, target_cmds in categories.items():
+            current_section = [(name, help_str) for name, help_str in commands if name in target_cmds]
+            if current_section:
+                with formatter.section(section_title):
+                    formatter.write_dl(current_section)
+
+# Initialize the Typer App with your custom group layout
+app = typer.Typer(help="Narsil CLI Client", add_completion=False, cls=AgentFriendlyGroup)
 
 # ── Shared Enums for Strict CLI Validation ─────────────────────────────────
 
@@ -201,7 +241,7 @@ def get_file_symbols(file_path: str, raw_output: str) -> str:
 
                 definition = ")".join(parts[1:]).strip()
                 line_key = int(line_num)
-                
+
                 if line_key not in ra_map:
                     maybe_idx = bisect.bisect_left(sorted_ra_lines, line_key)
                     if maybe_idx > 0:
@@ -211,7 +251,7 @@ def get_file_symbols(file_path: str, raw_output: str) -> str:
                 if ra_info and ra_info["name"] in definition and ra_info.get("container"):
                     ra_name = ra_info["name"]
                     container = ra_info["container"]
-    
+
                     for kw in ["fn ", "struct ", "enum ", "type ", "const "]:
                         if f"{kw}{ra_name}" in definition:
                             definition = definition.replace(f"{kw}{ra_name}", f"{kw}{container}::{ra_name}")
@@ -283,8 +323,7 @@ def get_chunks_by_lines(raw_chunks_output: str, target_lines: list[int]) -> str:
 
 # ── Typer CLI Command Map Implementation ───────────────────────────────────
 
-@app.command("symbol", help="Get source with surrounding context for symbols")
-@app.command(name="read-symbols", hidden=True)
+@app.command("view-symbols", help="Get source with surrounding context for symbols")
 def cmd_symbol(
     symbols: Annotated[List[str], typer.Argument(help="One or more named symbols to view")],
     context_lines: Annotated[int, typer.Option("--context-lines", help="Number of context lines")] = 0,
@@ -298,19 +337,7 @@ def cmd_symbol(
         parts.append(f"# Symbol  {symbol}\n{res}")
     print("\n---\n\n".join(parts))
 
-@app.command("excerpt", help="Read a line, auto-expanded to its full scope")
-def cmd_excerpt(
-    path: Annotated[str, typer.Argument(help="Target file path")],
-    lines: Annotated[List[int], typer.Argument(help="One or more line numbers to extract around")],
-    repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
-):
-    res = send_request("get_excerpt", {
-        "repo": repo, "path": path, "lines": list(lines), "expand_to_scope": True,
-    })
-    print(res)
-
-@app.command("refs", help="Find all references to a symbol")
-@app.command(name="find-references", hidden=True) # the agent sometimes gets confused and uses this instead
+@app.command("find-references", help="Find all references to a symbol")
 def cmd_refs(
     symbol: Annotated[str, typer.Argument(help="Target symbol")],
     include_definition: Annotated[bool, typer.Option("--include-definition/--no-include-definition")] = True,
@@ -324,7 +351,7 @@ def cmd_refs(
     })
     print(res)
 
-@app.command("find-symbols", help="Find structs, classes, functions by type/pattern")
+@app.command("find-symbols-by-pattern", help="Find structs, classes, functions by type/pattern")
 def cmd_find_symbols(
     symbol_type: Annotated[SymbolType, typer.Option("--type", help="Filter by symbol structure type")] = SymbolType.all,
     pattern: Annotated[Optional[str], typer.Option("--pattern", help="Fuzzy name pattern matching")] = None,
@@ -338,7 +365,7 @@ def cmd_find_symbols(
     res = send_request("find_symbols", params)
     print(res)
 
-@app.command("deps", help="Analyze imports and dependents")
+@app.command("analyze-dependencies", help="Analyze imports and dependents")
 def cmd_deps(
     path: Annotated[str, typer.Argument(help="Target module or file path")],
     direction: Annotated[Direction, typer.Option("--direction", help="The search path orientation orientation")] = Direction.both,
@@ -360,7 +387,7 @@ def cmd_workspace_search(
     })
     print(res)
 
-@app.command("usages", help="Cross-file symbol usage with imports")
+@app.command("catalog-usages", help="Cross-file symbol usage with imports")
 def cmd_usages(
     symbol: Annotated[str, typer.Argument(help="Symbol name query")],
     no_imports: Annotated[bool, typer.Option("--no-imports")] = False,
@@ -374,7 +401,7 @@ def cmd_usages(
     })
     print(res)
 
-@app.command("exports", help="Get exported symbols from a file/module")
+@app.command("get-exports", help="Get exported symbols from a file/module")
 def cmd_exports(
     path: Annotated[str, typer.Argument(help="Module or file target path")],
     repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
@@ -382,7 +409,7 @@ def cmd_exports(
     res = send_request("get_export_map", {"repo": repo, "path": path})
     print(res)
 
-@app.command("call-graph", help="Get call graph for repository/function")
+@app.command("get-call-graph", help="Get call graph for repository/function")
 def cmd_call_graph(
     function: Annotated[Optional[str], typer.Argument(help="Target entry function name")] = None,
     depth: Annotated[int, typer.Option("--depth", help="Maximum lookup hierarchy depth boundaries")] = 3,
@@ -394,7 +421,7 @@ def cmd_call_graph(
     res = send_request("get_call_graph", params)
     print(res)
 
-@app.command("callers", help="Find functions that call a function")
+@app.command("find-callers", help="Find functions that call a function")
 def cmd_callers(
     function: Annotated[str, typer.Argument(help="Target function leaf node")],
     transitive: Annotated[bool, typer.Option("--transitive")] = False,
@@ -409,7 +436,7 @@ def cmd_callers(
     })
     print(res)
 
-@app.command("callees", help="Find functions called by a function")
+@app.command("find-callees", help="Find functions called by a function")
 def cmd_callees(
     function: Annotated[str, typer.Argument(help="Root function identifier")],
     transitive: Annotated[bool, typer.Option("--transitive")] = False,
@@ -424,7 +451,7 @@ def cmd_callees(
     })
     print(res)
 
-@app.command("call-path", help="Find path between two functions")
+@app.command("get-call-path", help="Find path between two functions")
 def cmd_call_path(
     from_fn: Annotated[str, typer.Argument(help="Starting trace node path identifier")],
     to_fn: Annotated[str, typer.Argument(help="Destination search node execution target")],
@@ -435,7 +462,7 @@ def cmd_call_path(
     })
     print(res)
 
-@app.command("control-flow", help="Analyze basic blocks, branches, loops")
+@app.command("analyze-control-flow", help="Analyze basic blocks, branches, loops")
 def cmd_control_flow(
     path: Annotated[str, typer.Argument(help="Module file target path location")],
     function: Annotated[str, typer.Argument(help="Target logic wrapper scope")],
@@ -446,7 +473,7 @@ def cmd_control_flow(
     })
     print(res)
 
-@app.command("data-flow", help="Trace variable definitions and uses")
+@app.command("analyze-data-flow", help="Trace variable definitions and uses")
 def cmd_data_flow(
     path: Annotated[str, typer.Argument(help="Target source code execution file path")],
     function: Annotated[str, typer.Argument(help="Target function block identifier definition")],
@@ -468,19 +495,19 @@ def cmd_chunks(
     })
     print(res)
 
-@app.command("chunk-stats", help="Statistics about code chunks")
+@app.command("get-chunk-stats", help="Statistics about code chunks")
 def cmd_chunk_stats(
     repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
 ):
     res = send_request("get_chunk_stats", {"repo": repo})
     print(res)
 
-@app.command("embedding-stats", help="Embedding index statistics")
+@app.command("get-embedding-stats", help="Embedding index statistics")
 def cmd_embedding_stats():
     res = send_request("get_embedding_stats", {})
     print(res)
 
-@app.command("search", help="Keyword search with relevance ranking")
+@app.command("search-keywords", help="Keyword search with relevance ranking")
 def cmd_search(
     query: Annotated[str, typer.Argument(help="Lexical match query payload string")],
     file_pattern: Annotated[Optional[str], typer.Option("--file-pattern")] = None,
@@ -493,7 +520,7 @@ def cmd_search(
     res = send_request("search_code", params)
     print(res)
 
-@app.command("semantic", help="BM25-ranked semantic search")
+@app.command("search-semantic", help="BM25-ranked semantic search")
 def cmd_semantic(
     query: Annotated[str, typer.Argument(help="Natural syntax context description string query")],
     doc_type: Annotated[Optional[DocType], typer.Option("--doc-type", help="Structural module filter context parameters")] = None,
@@ -506,7 +533,7 @@ def cmd_semantic(
     res = send_request("semantic_search", params)
     print(res)
 
-@app.command("hybrid", help="Combined BM25 + TF-IDF search with rank fusion")
+@app.command("search-hybrid", help="Combined BM25 + TF-IDF search with rank fusion")
 def cmd_hybrid(
     query: Annotated[str, typer.Argument(help="Multi-model index engine target match data query string")],
     max_results: Annotated[int, typer.Option("--max-results")] = 10,
@@ -534,7 +561,7 @@ def cmd_search_chunks(
         res = filter_chunks_by_files(res, list(files))
     print(res)
 
-@app.command("similar-code", help="Find code similar to a snippet (TF-IDF)")
+@app.command("find-similar-code", help="Find code similar to a snippet (TF-IDF)")
 def cmd_similar_code(
     query: Annotated[str, typer.Argument(help="Raw sample template block validation text context source string")],
     max_results: Annotated[int, typer.Option("--max-results")] = 10,
@@ -545,7 +572,7 @@ def cmd_similar_code(
     res = send_request("find_similar_code", params)
     print(res)
 
-@app.command("similar-symbol", help="Find code similar to a symbol")
+@app.command("find-similar-symbol", help="Find code similar to a symbol")
 def cmd_similar_symbol(
     symbol: Annotated[str, typer.Argument(help="Existing codebase module search reference label key")],
     max_results: Annotated[int, typer.Option("--max-results")] = 10,
@@ -556,7 +583,7 @@ def cmd_similar_symbol(
     })
     print(res)
 
-@app.command("structure", help="Get directory tree with file icons and sizes")
+@app.command("view-repository-structure", help="Get directory tree with file icons and sizes")
 def cmd_structure(
     max_depth: Annotated[int, typer.Option("--max-depth")] = 4,
     repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
@@ -564,7 +591,7 @@ def cmd_structure(
     res = send_request("get_project_structure", {"repo": repo, "max_depth": max_depth})
     print(res)
 
-@app.command("file-skeleton", help="Get the symbols for files")
+@app.command("scan-file-skeletons", help="Get the symbols for files")
 def cmd_file_skeleton(
     file: Annotated[str, typer.Option("--file", help="Path to the source file", show_default=False)],
     repo: Annotated[str, typer.Option("--repo", help="Repository name")] = DEFAULT_REPO,
@@ -575,7 +602,6 @@ def cmd_file_skeleton(
     print(res)
 
 @app.command("get-chunks-by-lines", help="For each line: get the chunk that contains the line")
-@app.command(name="read-excerpts", hidden=True)
 def cmd_get_chunks_by_lines(
     file: Annotated[str, typer.Option("--file", help="Path to the source file", show_default=False)],
     lines: Annotated[List[int], typer.Option("--line", help="Line numbers to retrieve chunks for", show_default=False)],
@@ -587,7 +613,7 @@ def cmd_get_chunks_by_lines(
     res = get_chunks_by_lines(raw_output, list(lines))
     print(res)
 
-@app.command("batch")
+@app.command("batch-commands")
 def cmd_batch():
     """
     Execute multiple subcommands sequentially from standard input (stdin).
@@ -599,14 +625,14 @@ def cmd_batch():
     - Blank lines and lines starting with '#' are ignored.
 
     EXAMPLE:
-        cat << 'EOF' | /bin/narsil_client.py batch
-        symbol --name "Schedule" --file "search.rs"
-        refs --name "HAWK_MIN_DIST_ROTATIONS"
-        excerpt --file "intra_batch.rs" --line 42
+        cat << 'EOF' | /bin/narsil_client.py batch-commands
+        view-symbols --name "Schedule" --file "search.rs"
+        find-references --name "HAWK_MIN_DIST_ROTATIONS"
+        get-chunks-by-lines --file "intra_batch.rs" --line 42
         EOF
     """
     if sys.stdin.isatty():
-        typer.echo("Error: 'batch' expects commands via stdin pipe. See --help.", err=True)
+        typer.echo("Error: 'batch-commands' expects commands via stdin pipe. See --help.", err=True)
         raise typer.Exit(code=1)
 
     click_app = typer.main.get_command(app)
@@ -616,30 +642,30 @@ def cmd_batch():
         # Skip empty lines and comments
         if not cleaned or cleaned.startswith("#"):
             continue
-            
+
         try:
             args = shlex.split(cleaned)
-            
-            # Print a clear visual delimiter so the Agent can easily parse where 
+
+            # Print a clear visual delimiter so the Agent can easily parse where
             # one command ends and the next begins in the console output.
             typer.secho(f"\n🚀 [Batch] Executing: /bin/narsil_client.py {cleaned}", fg=typer.colors.CYAN, bold=True)
             typer.echo("-" * 40)
-            
+
             # 3. Invoke the subcommand in-memory.
             # standalone_mode=False prevents Click from calling sys.exit() on completion/error
             click_app.main(args=args, standalone_mode=False)
-            
+
         except click.ClickException as e:
             # Handles CLI syntax issues (e.g., agent passed a bad flag like --no-such-arg)
             typer.secho(f"❌ CLI Error: {e}", fg=typer.colors.RED, err=True)
-            
+
         except click.Exit as e:
             # Handles explicit exits inside your subcommands (like raise typer.Exit())
             if e.exit_code != 0:
                 typer.secho(f"❌ Command exited with code {e.exit_code}", fg=typer.colors.RED, err=True)
-                
+
         except Exception as e:
-            # Safety net: Handles runtime crashes (e.g., KeyError, FileNotFoundError) 
+            # Safety net: Handles runtime crashes (e.g., KeyError, FileNotFoundError)
             # inside your actual command logic, keeping the loop alive for subsequent commands.
             typer.secho(f"💥 Runtime Crash: {e}", fg=typer.colors.RED, err=True)
 

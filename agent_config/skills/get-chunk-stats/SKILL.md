@@ -7,5 +7,5 @@ Returns aggregate statistics about AST code chunks across the full repository (c
 
 ## Tool Interface
 ```
-/bin/narsil_client.py chunk-stats
+/bin/narsil_client.py get-chunk-stats
 ```

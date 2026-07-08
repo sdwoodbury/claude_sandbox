@@ -7,7 +7,7 @@ Returns the import graph for a given file path: what it imports (`imports`), wha
 
 ## Tool Interface
 ```
-/bin/narsil_client.py deps <path: str> \
+/bin/narsil_client.py analyze-dependencies <path: str> \
     [--direction <imports|imported_by|both = "both">]
 ```
 

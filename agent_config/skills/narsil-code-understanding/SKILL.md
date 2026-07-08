@@ -24,7 +24,7 @@ Use this procedure when onboarding onto unfamiliar crates, debugging panics, tra
 | Full multi-level pipeline view | **`get-call-graph`** | Use for complex entry points; default `depth=2` |
 | Path between two distant functions | **`get-call-path`** | Both must be indexed symbols |
 
-After any tracing tool returns line numbers, feed them to **`read-excerpts`** for full AST context. If a symbol name is returned, call **`read-symbols`** directly — never hunt by coordinates.
+After any tracing tool returns line numbers, feed them to **`get-chunks-by-lines`** for full AST context. If a symbol name is returned, call **`view-symbols`** directly — never hunt by coordinates.
 
 ## Phase C: Micro-Analysis — Intra-Function Diagnostics
 
@@ -41,13 +41,13 @@ Use both together for full intra-function diagnostics on a complex or suspect fu
 `view-repository-structure` → `get-exports` (key files) → `analyze-dependencies` → `search-hybrid` for entry points → `search-chunks --chunk-type function` to read key handler bodies
 
 **Tracing a panic upstream:**
-`find-callers` (transitive=true) → `get-call-graph` → `read-excerpts` on suspect lines → `analyze-control-flow`
+`find-callers` (transitive=true) → `get-call-graph` → `get-chunks-by-lines` on suspect lines → `analyze-control-flow`
 
 **Find all implementations of a pattern:**
-`search-chunks --chunk-type function` (concept query) → `read-excerpts` for deep context on matches
+`search-chunks --chunk-type function` (concept query) → `get-chunks-by-lines` for deep context on matches
 
 **Refactor blast-radius audit:**
-`analyze-dependencies` → `find-usages` → `find-callers` → `get-exports` to verify API surface
+`analyze-dependencies` → `catalog-usages` → `find-callers` → `get-exports` to verify API surface
 
 **Debug a state mutation bug:**
-`analyze-data-flow` → `analyze-control-flow` → `read-excerpts` on mutation sites
+`analyze-data-flow` → `analyze-control-flow` → `get-chunks-by-lines` on mutation sites

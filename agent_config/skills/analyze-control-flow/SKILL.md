@@ -7,7 +7,7 @@ Produces a structural control-flow graph for a function: basic blocks, condition
 
 ## Tool Interface
 ```
-/bin/narsil_client.py control-flow <path: str> <function_name: str>
+/bin/narsil_client.py analyze-control-flow <path: str> <function_name: str>
 ```
 
 ## Usage

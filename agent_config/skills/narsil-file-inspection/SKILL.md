@@ -21,12 +21,12 @@ Choose one path based on what you know:
 
 | Situation | Tool | Why |
 |---|---|---|
-| You know the exact symbol name | **`read-symbols`** | Fetches the complete block with no line hunting |
-| You have a line number from a prior tool | **`read-excerpts`** | Returns the full enclosing AST chunk for that line |
-| You only have a partial name / fuzzy concept | **`find-symbols-by-pattern`** → then `read-symbols` | Resolves the exact identifier first |
+| You know the exact symbol name | **`view-symbols`** | Fetches the complete block with no line hunting |
+| You have a line number from a prior tool | **`get-chunks-by-lines`** | Returns the full enclosing AST chunk for that line |
+| You only have a partial name / fuzzy concept | **`find-symbols-by-pattern`** → then `view-symbols` | Resolves the exact identifier first |
 
 ### Ambiguous Name Resolution
 If the exact identifier is unknown:
 1. Call **`find-symbols-by-pattern`** with `--pattern "*Partial*"` and the appropriate `--type` filter (`"struct"`, `"function"`, `"all"`, etc.).
-2. Once the exact name is returned, call **`read-symbols`** — never guess coordinates.
+2. Once the exact name is returned, call **`view-symbols`** — never guess coordinates.
 

@@ -7,7 +7,7 @@ Returns the public API surface of a file or module: all exported functions, type
 
 ## Tool Interface
 ```
-/bin/narsil_client.py exports <path: str>
+/bin/narsil_client.py get-exports <path: str>
 ```
 
 ## Usage

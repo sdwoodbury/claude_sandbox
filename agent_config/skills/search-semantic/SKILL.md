@@ -7,7 +7,7 @@ BM25-ranked semantic search. Best for natural language queries describing behavi
 
 ## Tool Interface
 ```
-/bin/narsil_client.py semantic <query: str> \
+/bin/narsil_client.py search-semantic <query: str> \
     [--doc-type <file|function|class|struct|method = "function">] \
     [--max-results <n: int = 5>] \
     [--exclude-tests]

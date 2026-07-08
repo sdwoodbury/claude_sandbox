@@ -7,7 +7,7 @@ Generates the full call graph for a function up to `depth` levels, showing the c
 
 ## Tool Interface
 ```
-/bin/narsil_client.py call-graph <function_name: str> \
+/bin/narsil_client.py get-call-graph <function_name: str> \
     [--depth <n: int = 2>] \
     [--exclude-tests]
 ```

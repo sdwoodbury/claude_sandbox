@@ -7,7 +7,7 @@ Performs an exact text/keyword search across indexed source files, returning res
 
 ## Tool Interface
 ```
-/bin/narsil_client.py search <query: str> \
+/bin/narsil_client.py search-keywords <query: str> \
     [--file-pattern <glob: str>] \
     [--max-results <n: int = 10>] \
     [--exclude-tests]

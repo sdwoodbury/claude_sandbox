@@ -7,7 +7,7 @@ Given a raw code snippet, returns existing codebase chunks that are semantically
 
 ## Tool Interface
 ```
-/bin/narsil_client.py similar-code <code_snippet: str> \
+/bin/narsil_client.py find-similar-code <code_snippet: str> \
     [--max-results <n: int = 5>] \
     [--exclude-tests]
 ```

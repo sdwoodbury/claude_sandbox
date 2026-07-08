@@ -13,4 +13,4 @@ Performs a fuzzy name search across all workspace symbols, returning matches wit
 ```
 
 ## Usage
-Use when you have a rough idea of a symbol name but don't know the exact casing, module, or file. Follow up with `read-symbols` once the exact name is identified.
+Use when you have a rough idea of a symbol name but don't know the exact casing, module, or file. Follow up with `view-symbols` once the exact name is identified.
