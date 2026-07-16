@@ -27,7 +27,7 @@ DOCKER_FLAGS=(
     "-v" "${AGENT_DIR}/log-scout.md:/root/.claude/agents/log-scout.md:ro"
     "-v" "${AGENT_DIR}/orchestrator.md:/root/.claude/agents/orchestrator.md:ro"
     "-v" "${AGENT_DIR}/smart-explorer.md:/root/.claude/agents/smart-explorer.md:ro"
-    "-v" "${AGENT_DIR}/sonnet-agent.md:/root/.claude/agents/sonnet-agent.md:ro"
+    "-v" "${AGENT_DIR}/haiku-agent.md:/root/.claude/agents/haiku-agent.md:ro"
     "-v" "${AGENT_DIR}/opus-agent.md:/root/.claude/agents/opus-agent.md:ro"
     "-v" "${AGENT_DIR}/skills:/root/.claude/skills:ro"
 )

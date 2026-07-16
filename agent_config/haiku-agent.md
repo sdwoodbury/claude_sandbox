@@ -1,6 +1,6 @@
 ---
-name: sonnet-agent
-model: sonnet
+name: haiku-agent
+model: haiku
 effort: medium
 user-invocable: true
 description: Expert Rust systems engineer, powered by custom skills.
